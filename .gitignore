@@ -1,0 +1,38 @@
+# Zig build
+zig-cache/
+zig-out/
+.zig-cache/
+
+# Compile
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Tmp
+__pycache__/
+tmp/
+*.tmp
+*.log
+*.bak
