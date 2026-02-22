@@ -45,18 +45,18 @@ pub fn main() !void {
     std.debug.print("]\n\n", .{});
 
     // Copy to device
-    const d_A = try stream.cloneHtod(f32, &A_data);
+    const d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
-    const d_y = try stream.cloneHtod(f32, &y_data);
+    const d_y = try stream.cloneHtoD(f32, &y_data);
     defer d_y.deinit();
 
     // y = 1.0 * A * x + 0.0 * y
     try blas.sgemv(.no_transpose, m, n, 1.0, d_A, m, d_x, 0.0, d_y);
 
     var h_result: [3]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_result, d_y);
+    try stream.memcpyDtoH(f32, &h_result, d_y);
 
     // Expected: y = A*x = [1*1+2*2+3*3+4*4, 5*1+6*2+7*3+8*4, 9*1+10*2+11*3+12*4] = [30, 70, 110]
     std.debug.print("y = A·x = [ ", .{});

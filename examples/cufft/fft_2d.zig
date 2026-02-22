@@ -34,7 +34,7 @@ pub fn main() !void {
     }
     std.debug.print("\n", .{});
 
-    const d_data = try stream.cloneHtod(f32, &h_input);
+    const d_data = try stream.cloneHtoD(f32, &h_input);
     defer d_data.deinit();
     const d_out = try stream.alloc(f32, allocator, complex_total);
     defer d_out.deinit();
@@ -46,7 +46,7 @@ pub fn main() !void {
     try plan.execC2C(d_data, d_out, .forward);
 
     var h_fft: [complex_total]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_fft, d_out);
+    try stream.memcpyDtoH(f32, &h_fft, d_out);
 
     std.debug.print("2D FFT magnitude:\n", .{});
     for (0..nx) |r| {
@@ -76,7 +76,7 @@ pub fn main() !void {
     try plan.execC2C(d_out, d_data, .inverse);
 
     var h_result: [complex_total]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_result, d_data);
+    try stream.memcpyDtoH(f32, &h_result, d_data);
 
     // Normalize
     const nf: f32 = @floatFromInt(total);

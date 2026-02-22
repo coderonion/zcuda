@@ -30,9 +30,9 @@ pub fn main() !void {
     const x_data = [_]f32{ 1, 2, 3 };
     var y_data = [_]f32{ 0, 0, 0 };
 
-    const d_A = try stream.cloneHtod(f32, &A_data);
+    const d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
     var d_y = try stream.allocZeros(f32, allocator, 3);
     defer d_y.deinit();
@@ -41,7 +41,7 @@ pub fn main() !void {
     std.debug.print("─── SYMV: y = A·x ───\n", .{});
     try blas.ssymv(.lower, n, 1.0, d_A, n, d_x, 1, 0.0, d_y, 1);
 
-    try stream.memcpyDtoh(f32, &y_data, d_y);
+    try stream.memcpyDtoH(f32, &y_data, d_y);
 
     std.debug.print("A:\n", .{});
     for (0..3) |r| {
@@ -63,7 +63,7 @@ pub fn main() !void {
     std.debug.print("─── SYR: A = A + x·xᵀ ───\n", .{});
     try blas.ssyr(.lower, n, 1.0, d_x, 1, d_A, n);
 
-    try stream.memcpyDtoh(f32, &A_data, d_A);
+    try stream.memcpyDtoH(f32, &A_data, d_A);
 
     std.debug.print("A + x·xᵀ:\n", .{});
     for (0..3) |r| {

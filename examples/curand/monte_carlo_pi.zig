@@ -88,7 +88,7 @@ pub fn main() !void {
         try stream.synchronize();
 
         var count: [1]u32 = undefined;
-        try stream.memcpyDtoh(u32, &count, d_count);
+        try stream.memcpyDtoH(u32, &count, d_count);
 
         const pi_estimate = 4.0 * @as(f64, @floatFromInt(count[0])) / @as(f64, @floatFromInt(n));
         const err = @abs(pi_estimate - std.math.pi);

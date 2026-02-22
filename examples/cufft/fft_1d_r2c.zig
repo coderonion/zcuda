@@ -31,7 +31,7 @@ pub fn main() !void {
     // R2C output has n/2+1 complex values = (n/2+1)*2 floats
     const complex_out_n = (n / 2 + 1) * 2;
 
-    const d_input = try stream.cloneHtod(f32, &h_input);
+    const d_input = try stream.cloneHtoD(f32, &h_input);
     defer d_input.deinit();
     const d_freq = try stream.alloc(f32, allocator, complex_out_n);
     defer d_freq.deinit();
@@ -43,7 +43,7 @@ pub fn main() !void {
     try plan_r2c.execR2C(d_input, d_freq);
 
     var h_freq: [complex_out_n]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_freq, d_freq);
+    try stream.memcpyDtoH(f32, &h_freq, d_freq);
 
     std.debug.print("Frequency spectrum magnitudes:\n", .{});
     for (0..n / 2 + 1) |k| {
@@ -60,7 +60,7 @@ pub fn main() !void {
     std.debug.print("─── Filtering: zero out bin 3 ───\n", .{});
     h_freq[6] = 0; // bin 3 real
     h_freq[7] = 0; // bin 3 imag
-    try stream.memcpyHtod(f32, d_freq, &h_freq);
+    try stream.memcpyHtoD(f32, d_freq, &h_freq);
 
     // C2R inverse
     const d_output = try stream.alloc(f32, allocator, n);
@@ -72,7 +72,7 @@ pub fn main() !void {
     try plan_c2r.execC2R(d_freq, d_output);
 
     var h_output: [n]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_output, d_output);
+    try stream.memcpyDtoH(f32, &h_output, d_output);
 
     // Normalize
     for (&h_output) |*v| v.* /= @as(f32, @floatFromInt(n));

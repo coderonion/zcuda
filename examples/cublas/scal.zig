@@ -24,13 +24,13 @@ pub fn main() !void {
     for (&x_data) |v| std.debug.print("{d:.1} ", .{v});
     std.debug.print("]\nα = {d:.1}\n\n", .{alpha});
 
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
 
     try blas.sscal(n, alpha, d_x);
 
     var h_result: [8]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_result, d_x);
+    try stream.memcpyDtoH(f32, &h_result, d_x);
 
     std.debug.print("After:  x = [ ", .{});
     for (&h_result) |v| std.debug.print("{d:.1} ", .{v});

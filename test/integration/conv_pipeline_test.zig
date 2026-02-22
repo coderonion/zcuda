@@ -34,12 +34,12 @@ test "cuDNN conv2d forward + relu pipeline" {
 
     // Input: all 1.0
     const input_data = [_]f32{1.0} ** 16;
-    const d_input = try stream.cloneHtod(f32, &input_data);
+    const d_input = try stream.cloneHtoD(f32, &input_data);
     defer d_input.deinit();
 
     // Filter: all 1.0 (3x3 sum filter)
     const filter_data = [_]f32{1.0} ** 9;
-    const d_filter = try stream.cloneHtod(f32, &filter_data);
+    const d_filter = try stream.cloneHtoD(f32, &filter_data);
     defer d_filter.deinit();
 
     const out_size: usize = @intCast(dim.n * dim.c * dim.h * dim.w);
@@ -63,7 +63,7 @@ test "cuDNN conv2d forward + relu pipeline" {
     try ctx.synchronize();
 
     var result: [16]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_output);
+    try stream.memcpyDtoH(f32, &result, d_output);
 
     // All values should be > 0
     for (result) |val| {
@@ -85,7 +85,7 @@ test "cuDNN conv2d forward + relu pipeline" {
     try ctx.synchronize();
 
     var act_result: [16]f32 = undefined;
-    try stream.memcpyDtoh(f32, &act_result, d_act_output);
+    try stream.memcpyDtoH(f32, &act_result, d_act_output);
 
     // After ReLU on positive values, should be unchanged
     for (0..16) |i| {

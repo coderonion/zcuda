@@ -37,7 +37,7 @@ test "cuRAND → cuFFT: random signal spectral analysis" {
 
     // Read back and verify spectral properties
     var h_freq: [258]f32 = undefined; // (128+1)*2
-    try stream.memcpyDtoh(f32, h_freq[0..complex_n], d_freq);
+    try stream.memcpyDtoH(f32, h_freq[0..complex_n], d_freq);
 
     // For white noise, energy should be spread across bins (not concentrated)
     var total_energy: f64 = 0;

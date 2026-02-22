@@ -26,9 +26,9 @@ pub fn main() !void {
     const A_data = [_]f32{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     const B_data = [_]f32{ 10, 20, 30, 40, 50, 60, 70, 80, 90 };
 
-    const d_A = try stream.cloneHtod(f32, &A_data);
+    const d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    const d_B = try stream.cloneHtod(f32, &B_data);
+    const d_B = try stream.cloneHtoD(f32, &B_data);
     defer d_B.deinit();
     const allocator = std.heap.page_allocator;
     const d_C = try stream.alloc(f32, allocator, 9);
@@ -39,7 +39,7 @@ pub fn main() !void {
     try blas.sgeam(.no_transpose, .no_transpose, m, n, 2.0, d_A, m, 1.0, d_B, m, d_C, m);
 
     var C: [9]f32 = undefined;
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     for (0..3) |r| {
         std.debug.print("  [", .{});
@@ -57,7 +57,7 @@ pub fn main() !void {
     std.debug.print("─── C = Aᵀ (transpose) ───\n", .{});
     try blas.sgeam(.transpose, .no_transpose, n, m, 1.0, d_A, m, 0.0, d_A, n, d_C, n);
 
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     for (0..3) |r| {
         std.debug.print("  [", .{});

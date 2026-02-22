@@ -29,9 +29,9 @@ pub fn main() !void {
     for (&y_data) |v| std.debug.print(" {d:.1}", .{v});
     std.debug.print(" ]\n\n", .{});
 
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
-    const d_y = try stream.cloneHtod(f32, &y_data);
+    const d_y = try stream.cloneHtoD(f32, &y_data);
     defer d_y.deinit();
 
     // Apply rotation: c = cos(45°), s = sin(45°)
@@ -46,8 +46,8 @@ pub fn main() !void {
     try blas.srot(@intCast(n), d_x, 1, d_y, 1, c, s);
 
     // Copy back
-    try stream.memcpyDtoh(f32, &x_data, d_x);
-    try stream.memcpyDtoh(f32, &y_data, d_y);
+    try stream.memcpyDtoH(f32, &x_data, d_x);
+    try stream.memcpyDtoH(f32, &y_data, d_y);
 
     std.debug.print("After rotation:\n", .{});
     std.debug.print("  x' = [", .{});

@@ -36,13 +36,13 @@ pub fn main() !void {
     const cols_b: i64 = 2;
     const h_B = [_]f32{ 1, 2, 3, 4, 5, 6 }; // col-major
 
-    const d_row_off = try stream.cloneHtod(i32, &h_row_off);
+    const d_row_off = try stream.cloneHtoD(i32, &h_row_off);
     defer d_row_off.deinit();
-    const d_col_idx = try stream.cloneHtod(i32, &h_col_idx);
+    const d_col_idx = try stream.cloneHtoD(i32, &h_col_idx);
     defer d_col_idx.deinit();
-    const d_vals = try stream.cloneHtod(f32, &h_vals);
+    const d_vals = try stream.cloneHtoD(f32, &h_vals);
     defer d_vals.deinit();
-    const d_B = try stream.cloneHtod(f32, &h_B);
+    const d_B = try stream.cloneHtoD(f32, &h_B);
     defer d_B.deinit();
 
     // Output C (3x2, col-major)
@@ -70,7 +70,7 @@ pub fn main() !void {
     try ctx.synchronize();
 
     var h_C: [6]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_C, d_C);
+    try stream.memcpyDtoH(f32, &h_C, d_C);
 
     // Expected C = A * B:
     // Row 0: [1*1+2*3, 1*4+2*6] = [7, 16]

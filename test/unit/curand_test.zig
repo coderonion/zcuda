@@ -36,7 +36,7 @@ test "cuRAND fillUniform — values in [0,1)" {
 
     // Read back and check range
     var host: [1024]f32 = undefined;
-    try stream.memcpyDtoh(f32, &host, data);
+    try stream.memcpyDtoH(f32, &host, data);
 
     for (host) |val| {
         try std.testing.expect(val >= 0.0);
@@ -62,7 +62,7 @@ test "cuRAND fillNormal — non-zero output" {
     try ctx.synchronize();
 
     var host: [1024]f32 = undefined;
-    try stream.memcpyDtoh(f32, &host, data);
+    try stream.memcpyDtoH(f32, &host, data);
 
     // Check that we got some nonzero values (mean=0 but stdev=1, so most will be nonzero)
     var nonzero: usize = 0;
@@ -90,7 +90,7 @@ test "cuRAND fillLogNormal — all positive values" {
     try ctx.synchronize();
 
     var host: [1024]f32 = undefined;
-    try stream.memcpyDtoh(f32, &host, data);
+    try stream.memcpyDtoH(f32, &host, data);
 
     for (host) |val| {
         try std.testing.expect(val > 0.0); // log-normal is always positive
@@ -116,7 +116,7 @@ test "cuRAND fillPoisson — non-negative integer values" {
     try ctx.synchronize();
 
     var host: [1024]u32 = undefined;
-    try stream.memcpyDtoh(u32, &host, data);
+    try stream.memcpyDtoH(u32, &host, data);
 
     // Poisson values should be non-negative and reasonable (for lambda=5, most values < 20)
     var sum: u64 = 0;
@@ -148,7 +148,7 @@ test "cuRAND fillUniformDouble — f64 values in [0,1)" {
     try ctx.synchronize();
 
     var host: [512]f64 = undefined;
-    try stream.memcpyDtoh(f64, &host, data);
+    try stream.memcpyDtoH(f64, &host, data);
 
     for (host) |val| {
         try std.testing.expect(val >= 0.0);
@@ -173,7 +173,7 @@ test "cuRAND Philox generator" {
     try ctx.synchronize();
 
     var host: [1024]f32 = undefined;
-    try stream.memcpyDtoh(f32, &host, data);
+    try stream.memcpyDtoH(f32, &host, data);
 
     // Verify range and non-trivial output
     var sum: f64 = 0.0;

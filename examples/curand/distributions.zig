@@ -37,7 +37,7 @@ pub fn main() !void {
         try rng.fillUniform(d_data);
 
         var h_data: [10000]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_data, d_data);
+        try stream.memcpyDtoH(f32, &h_data, d_data);
 
         var sum: f64 = 0.0;
         var min_val: f32 = std.math.floatMax(f32);
@@ -65,7 +65,7 @@ pub fn main() !void {
         try rng.fillNormal(d_data, 0.0, 1.0);
 
         var h_data: [10000]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_data, d_data);
+        try stream.memcpyDtoH(f32, &h_data, d_data);
 
         var sum: f64 = 0.0;
         for (&h_data) |v| sum += @as(f64, v);
@@ -94,7 +94,7 @@ pub fn main() !void {
         try rng.fillLogNormal(d_data, 0.0, 0.5);
 
         var h_data: [10000]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_data, d_data);
+        try stream.memcpyDtoH(f32, &h_data, d_data);
 
         var sum: f64 = 0.0;
         var min_val: f32 = std.math.floatMax(f32);
@@ -120,7 +120,7 @@ pub fn main() !void {
         try rng.fillPoisson(d_data, 5.0);
 
         var h_data: [10000]u32 = undefined;
-        try stream.memcpyDtoh(u32, &h_data, d_data);
+        try stream.memcpyDtoH(u32, &h_data, d_data);
 
         var sum: u64 = 0;
         for (&h_data) |v| sum += v;
@@ -149,8 +149,8 @@ pub fn main() !void {
 
         var h1: [5]f32 = undefined;
         var h2: [5]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h1, d1);
-        try stream.memcpyDtoh(f32, &h2, d2);
+        try stream.memcpyDtoH(f32, &h1, d1);
+        try stream.memcpyDtoH(f32, &h2, d2);
 
         std.debug.print("  Run 1: ", .{});
         for (&h1) |v| std.debug.print("{d:.6} ", .{v});

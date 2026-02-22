@@ -64,7 +64,7 @@ pub fn main() !void {
     for (&h_data) |v| std.debug.print("{d:.0} ", .{v});
     std.debug.print("]\n", .{});
 
-    const d_data = try stream.cloneHtod(f32, &h_data);
+    const d_data = try stream.cloneHtoD(f32, &h_data);
     defer d_data.deinit();
 
     const config = cuda.LaunchConfig.forNumElems(@intCast(n));
@@ -77,7 +77,7 @@ pub fn main() !void {
     try stream.synchronize();
 
     var h_result: [10]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_result, d_data);
+    try stream.memcpyDtoH(f32, &h_result, d_data);
 
     std.debug.print("Output: [ ", .{});
     for (&h_result) |v| std.debug.print("{d:.0} ", .{v});

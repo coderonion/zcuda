@@ -1,6 +1,7 @@
 /// cuSOLVER SVD Example
 ///
 /// Computes A = U * S * V^T via singular value decomposition.
+/// devInfo is allocated on GPU (cuSOLVER requirement).
 ///
 /// Reference: CUDALibrarySamples/cuSOLVER/gesvd
 const std = @import("std");
@@ -31,7 +32,7 @@ pub fn main() !void {
     }
     std.debug.print("\n", .{});
 
-    var d_A = try stream.cloneHtod(f32, &A_data);
+    var d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
 
     // Allocate output buffers
@@ -46,17 +47,22 @@ pub fn main() !void {
     const d_work = try stream.alloc(f32, allocator, @intCast(lwork));
     defer d_work.deinit();
 
-    var info: i32 = -1;
-    try sol.sgesvd('A', 'A', m, n, d_A, m, d_S, d_U, m, d_VT, n, d_work, lwork, &info);
-    try ctx.synchronize();
+    // cuSOLVER requires devInfo to be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = 0;
 
-    if (info != 0) {
-        std.debug.print("SVD failed: info = {}\n", .{info});
+    try sol.sgesvd('A', 'A', m, n, d_A, m, d_S, d_U, m, d_VT, n, d_work, lwork, d_info);
+    try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+
+    if (h_info != 0) {
+        std.debug.print("SVD failed: info = {}\n", .{h_info});
         return error.SvdFailed;
     }
 
     var h_S: [2]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_S, d_S);
+    try stream.memcpyDtoH(f32, &h_S, d_S);
 
     std.debug.print("Singular values:\n", .{});
     std.debug.print("  S[0] = {d:.6}\n  S[1] = {d:.6}\n\n", .{ h_S[0], h_S[1] });

@@ -45,23 +45,23 @@ pub const CusolverDnContext = struct {
     }
 
     /// LU factorization: PA = LU (float).
-    pub fn sgetrf(self: Self, m: i32, n: i32, a: driver.CudaSlice(f32), lda: i32, workspace: driver.CudaSlice(f32), ipiv: driver.CudaSlice(i32), info: *i32) CusolverError!void {
-        try result.sgetrf(self.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), @ptrFromInt(ipiv.ptr), info);
+    pub fn sgetrf(self: Self, m: i32, n: i32, a: driver.CudaSlice(f32), lda: i32, workspace: driver.CudaSlice(f32), ipiv: driver.CudaSlice(i32), info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.sgetrf(self.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), @ptrFromInt(ipiv.ptr), @ptrFromInt(info.ptr));
     }
 
     /// LU factorization: PA = LU (double).
-    pub fn dgetrf(self: Self, m: i32, n: i32, a: driver.CudaSlice(f64), lda: i32, workspace: driver.CudaSlice(f64), ipiv: driver.CudaSlice(i32), info: *i32) CusolverError!void {
-        try result.dgetrf(self.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), @ptrFromInt(ipiv.ptr), info);
+    pub fn dgetrf(self: Self, m: i32, n: i32, a: driver.CudaSlice(f64), lda: i32, workspace: driver.CudaSlice(f64), ipiv: driver.CudaSlice(i32), info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.dgetrf(self.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), @ptrFromInt(ipiv.ptr), @ptrFromInt(info.ptr));
     }
 
     /// Solve Ax = B after LU factorization (float).
-    pub fn sgetrs(self: Self, n: i32, nrhs: i32, a: driver.CudaSlice(f32), lda: i32, ipiv: driver.CudaSlice(i32), b: driver.CudaSlice(f32), ldb: i32, info: *i32) CusolverError!void {
-        try result.sgetrs(self.handle, sys.CUBLAS_OP_N, n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(ipiv.ptr), @ptrFromInt(b.ptr), ldb, info);
+    pub fn sgetrs(self: Self, n: i32, nrhs: i32, a: driver.CudaSlice(f32), lda: i32, ipiv: driver.CudaSlice(i32), b: driver.CudaSlice(f32), ldb: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.sgetrs(self.handle, sys.CUBLAS_OP_N, n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(ipiv.ptr), @ptrFromInt(b.ptr), ldb, @ptrFromInt(info.ptr));
     }
 
     /// Solve Ax = B after LU factorization (double).
-    pub fn dgetrs(self: Self, n: i32, nrhs: i32, a: driver.CudaSlice(f64), lda: i32, ipiv: driver.CudaSlice(i32), b: driver.CudaSlice(f64), ldb: i32, info: *i32) CusolverError!void {
-        try result.dgetrs(self.handle, sys.CUBLAS_OP_N, n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(ipiv.ptr), @ptrFromInt(b.ptr), ldb, info);
+    pub fn dgetrs(self: Self, n: i32, nrhs: i32, a: driver.CudaSlice(f64), lda: i32, ipiv: driver.CudaSlice(i32), b: driver.CudaSlice(f64), ldb: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.dgetrs(self.handle, sys.CUBLAS_OP_N, n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(ipiv.ptr), @ptrFromInt(b.ptr), ldb, @ptrFromInt(info.ptr));
     }
 
     // --- QR Factorization ---
@@ -72,8 +72,8 @@ pub const CusolverDnContext = struct {
     }
 
     /// QR factorization (float).
-    pub fn sgeqrf(self: Self, m: i32, n: i32, a: driver.CudaSlice(f32), lda: i32, tau: driver.CudaSlice(f32), workspace: driver.CudaSlice(f32), lwork: i32, info: *i32) CusolverError!void {
-        try result.sgeqrf(self.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn sgeqrf(self: Self, m: i32, n: i32, a: driver.CudaSlice(f32), lda: i32, tau: driver.CudaSlice(f32), workspace: driver.CudaSlice(f32), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.sgeqrf(self.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
     // --- SVD ---
@@ -104,7 +104,7 @@ pub const CusolverDnContext = struct {
         ldvt: i32,
         work: driver.CudaSlice(f32),
         lwork: i32,
-        info: *i32,
+        info: driver.CudaSlice(i32),
     ) CusolverError!void {
         try result.sgesvd(
             self.handle,
@@ -122,7 +122,7 @@ pub const CusolverDnContext = struct {
             @ptrFromInt(work.ptr),
             lwork,
             null,
-            info,
+            @ptrFromInt(info.ptr),
         );
     }
 
@@ -142,7 +142,7 @@ pub const CusolverDnContext = struct {
         ldvt: i32,
         work: driver.CudaSlice(f64),
         lwork: i32,
-        info: *i32,
+        info: driver.CudaSlice(i32),
     ) CusolverError!void {
         try result.dgesvd(
             self.handle,
@@ -160,7 +160,7 @@ pub const CusolverDnContext = struct {
             @ptrFromInt(work.ptr),
             lwork,
             null,
-            info,
+            @ptrFromInt(info.ptr),
         );
     }
 };
@@ -196,20 +196,20 @@ pub const CusolverDnExt = struct {
         return result.dpotrf_bufferSize(self.base.handle, uplo.toSys(), n, @ptrFromInt(a.ptr), lda);
     }
 
-    pub fn spotrf(self: CusolverDnExt, uplo: FillMode, n: i32, a: driver.CudaSlice(f32), lda: i32, workspace: driver.CudaSlice(f32), lwork: i32, info: *i32) CusolverError!void {
-        try result.spotrf(self.base.handle, uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn spotrf(self: CusolverDnExt, uplo: FillMode, n: i32, a: driver.CudaSlice(f32), lda: i32, workspace: driver.CudaSlice(f32), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.spotrf(self.base.handle, uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
-    pub fn dpotrf(self: CusolverDnExt, uplo: FillMode, n: i32, a: driver.CudaSlice(f64), lda: i32, workspace: driver.CudaSlice(f64), lwork: i32, info: *i32) CusolverError!void {
-        try result.dpotrf(self.base.handle, uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn dpotrf(self: CusolverDnExt, uplo: FillMode, n: i32, a: driver.CudaSlice(f64), lda: i32, workspace: driver.CudaSlice(f64), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.dpotrf(self.base.handle, uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
-    pub fn spotrs(self: CusolverDnExt, uplo: FillMode, n: i32, nrhs: i32, a: driver.CudaSlice(f32), lda: i32, b: driver.CudaSlice(f32), ldb: i32, info: *i32) CusolverError!void {
-        try result.spotrs(self.base.handle, uplo.toSys(), n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(b.ptr), ldb, info);
+    pub fn spotrs(self: CusolverDnExt, uplo: FillMode, n: i32, nrhs: i32, a: driver.CudaSlice(f32), lda: i32, b: driver.CudaSlice(f32), ldb: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.spotrs(self.base.handle, uplo.toSys(), n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(b.ptr), ldb, @ptrFromInt(info.ptr));
     }
 
-    pub fn dpotrs(self: CusolverDnExt, uplo: FillMode, n: i32, nrhs: i32, a: driver.CudaSlice(f64), lda: i32, b: driver.CudaSlice(f64), ldb: i32, info: *i32) CusolverError!void {
-        try result.dpotrs(self.base.handle, uplo.toSys(), n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(b.ptr), ldb, info);
+    pub fn dpotrs(self: CusolverDnExt, uplo: FillMode, n: i32, nrhs: i32, a: driver.CudaSlice(f64), lda: i32, b: driver.CudaSlice(f64), ldb: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.dpotrs(self.base.handle, uplo.toSys(), n, nrhs, @ptrFromInt(a.ptr), lda, @ptrFromInt(b.ptr), ldb, @ptrFromInt(info.ptr));
     }
 
     // --- Double QR ---
@@ -218,24 +218,24 @@ pub const CusolverDnExt = struct {
         return result.dgeqrf_bufferSize(self.base.handle, m, n, @ptrFromInt(a.ptr), lda);
     }
 
-    pub fn dgeqrf(self: CusolverDnExt, m: i32, n: i32, a: driver.CudaSlice(f64), lda: i32, tau: driver.CudaSlice(f64), workspace: driver.CudaSlice(f64), lwork: i32, info: *i32) CusolverError!void {
-        try result.dgeqrf(self.base.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn dgeqrf(self: CusolverDnExt, m: i32, n: i32, a: driver.CudaSlice(f64), lda: i32, tau: driver.CudaSlice(f64), workspace: driver.CudaSlice(f64), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.dgeqrf(self.base.handle, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
     pub fn sorgqr_bufferSize(self: CusolverDnExt, m: i32, n: i32, k: i32, a: driver.CudaSlice(f32), lda: i32, tau: driver.CudaSlice(f32)) CusolverError!i32 {
         return result.sorgqr_bufferSize(self.base.handle, m, n, k, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr));
     }
 
-    pub fn sorgqr(self: CusolverDnExt, m: i32, n: i32, k: i32, a: driver.CudaSlice(f32), lda: i32, tau: driver.CudaSlice(f32), workspace: driver.CudaSlice(f32), lwork: i32, info: *i32) CusolverError!void {
-        try result.sorgqr(self.base.handle, m, n, k, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn sorgqr(self: CusolverDnExt, m: i32, n: i32, k: i32, a: driver.CudaSlice(f32), lda: i32, tau: driver.CudaSlice(f32), workspace: driver.CudaSlice(f32), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.sorgqr(self.base.handle, m, n, k, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
     pub fn dorgqr_bufferSize(self: CusolverDnExt, m: i32, n: i32, k: i32, a: driver.CudaSlice(f64), lda: i32, tau: driver.CudaSlice(f64)) CusolverError!i32 {
         return result.dorgqr_bufferSize(self.base.handle, m, n, k, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr));
     }
 
-    pub fn dorgqr(self: CusolverDnExt, m: i32, n: i32, k: i32, a: driver.CudaSlice(f64), lda: i32, tau: driver.CudaSlice(f64), workspace: driver.CudaSlice(f64), lwork: i32, info: *i32) CusolverError!void {
-        try result.dorgqr(self.base.handle, m, n, k, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn dorgqr(self: CusolverDnExt, m: i32, n: i32, k: i32, a: driver.CudaSlice(f64), lda: i32, tau: driver.CudaSlice(f64), workspace: driver.CudaSlice(f64), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.dorgqr(self.base.handle, m, n, k, @ptrFromInt(a.ptr), lda, @ptrFromInt(tau.ptr), @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
     // --- Eigenvalue Decomposition (syevd) ---
@@ -248,12 +248,12 @@ pub const CusolverDnExt = struct {
         return result.dsyevd_bufferSize(self.base.handle, jobz.toSys(), uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(w.ptr));
     }
 
-    pub fn ssyevd(self: CusolverDnExt, jobz: EigMode, uplo: FillMode, n: i32, a: driver.CudaSlice(f32), lda: i32, w: driver.CudaSlice(f32), workspace: driver.CudaSlice(f32), lwork: i32, info: *i32) CusolverError!void {
-        try result.ssyevd(self.base.handle, jobz.toSys(), uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(w.ptr), @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn ssyevd(self: CusolverDnExt, jobz: EigMode, uplo: FillMode, n: i32, a: driver.CudaSlice(f32), lda: i32, w: driver.CudaSlice(f32), workspace: driver.CudaSlice(f32), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.ssyevd(self.base.handle, jobz.toSys(), uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(w.ptr), @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
-    pub fn dsyevd(self: CusolverDnExt, jobz: EigMode, uplo: FillMode, n: i32, a: driver.CudaSlice(f64), lda: i32, w: driver.CudaSlice(f64), workspace: driver.CudaSlice(f64), lwork: i32, info: *i32) CusolverError!void {
-        try result.dsyevd(self.base.handle, jobz.toSys(), uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(w.ptr), @ptrFromInt(workspace.ptr), lwork, info);
+    pub fn dsyevd(self: CusolverDnExt, jobz: EigMode, uplo: FillMode, n: i32, a: driver.CudaSlice(f64), lda: i32, w: driver.CudaSlice(f64), workspace: driver.CudaSlice(f64), lwork: i32, info: driver.CudaSlice(i32)) CusolverError!void {
+        try result.dsyevd(self.base.handle, jobz.toSys(), uplo.toSys(), n, @ptrFromInt(a.ptr), lda, @ptrFromInt(w.ptr), @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(info.ptr));
     }
 
     // --- Jacobi SVD (gesvdj) ---
@@ -264,8 +264,8 @@ pub const CusolverDnExt = struct {
     }
 
     /// Jacobi SVD: A = U * S * V^T (float).
-    pub fn sgesvdj(self: CusolverDnExt, jobz: EigMode, econ: c_int, m: i32, n: i32, a: driver.CudaSlice(f32), lda: i32, s: driver.CudaSlice(f32), u: driver.CudaSlice(f32), ldu: i32, v: driver.CudaSlice(f32), ldv: i32, workspace: driver.CudaSlice(f32), lwork: i32, dev_info: *i32, params: GesvdjInfo) CusolverError!void {
-        try result.sgesvdj(self.base.handle, jobz.toSys(), econ, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(s.ptr), @ptrFromInt(u.ptr), ldu, @ptrFromInt(v.ptr), ldv, @ptrFromInt(workspace.ptr), lwork, dev_info, params.info);
+    pub fn sgesvdj(self: CusolverDnExt, jobz: EigMode, econ: c_int, m: i32, n: i32, a: driver.CudaSlice(f32), lda: i32, s: driver.CudaSlice(f32), u: driver.CudaSlice(f32), ldu: i32, v: driver.CudaSlice(f32), ldv: i32, workspace: driver.CudaSlice(f32), lwork: i32, dev_info: driver.CudaSlice(i32), params: GesvdjInfo) CusolverError!void {
+        try result.sgesvdj(self.base.handle, jobz.toSys(), econ, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(s.ptr), @ptrFromInt(u.ptr), ldu, @ptrFromInt(v.ptr), ldv, @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(dev_info.ptr), params.info);
     }
 
     /// Get workspace size for Jacobi SVD (double).
@@ -274,8 +274,8 @@ pub const CusolverDnExt = struct {
     }
 
     /// Jacobi SVD: A = U * S * V^T (double).
-    pub fn dgesvdj(self: CusolverDnExt, jobz: EigMode, econ: c_int, m: i32, n: i32, a: driver.CudaSlice(f64), lda: i32, s: driver.CudaSlice(f64), u: driver.CudaSlice(f64), ldu: i32, v: driver.CudaSlice(f64), ldv: i32, workspace: driver.CudaSlice(f64), lwork: i32, dev_info: *i32, params: GesvdjInfo) CusolverError!void {
-        try result.dgesvdj(self.base.handle, jobz.toSys(), econ, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(s.ptr), @ptrFromInt(u.ptr), ldu, @ptrFromInt(v.ptr), ldv, @ptrFromInt(workspace.ptr), lwork, dev_info, params.info);
+    pub fn dgesvdj(self: CusolverDnExt, jobz: EigMode, econ: c_int, m: i32, n: i32, a: driver.CudaSlice(f64), lda: i32, s: driver.CudaSlice(f64), u: driver.CudaSlice(f64), ldu: i32, v: driver.CudaSlice(f64), ldv: i32, workspace: driver.CudaSlice(f64), lwork: i32, dev_info: driver.CudaSlice(i32), params: GesvdjInfo) CusolverError!void {
+        try result.dgesvdj(self.base.handle, jobz.toSys(), econ, m, n, @ptrFromInt(a.ptr), lda, @ptrFromInt(s.ptr), @ptrFromInt(u.ptr), ldu, @ptrFromInt(v.ptr), ldv, @ptrFromInt(workspace.ptr), lwork, @ptrFromInt(dev_info.ptr), params.info);
     }
 };
 

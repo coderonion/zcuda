@@ -31,11 +31,11 @@ test "GEMM end-to-end: 4x4 identity multiply" {
 
     const c_data = [_]f32{0} ** 16;
 
-    const d_a = try stream.cloneHtod(f32, &a_data);
+    const d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
-    const d_b = try stream.cloneHtod(f32, &b_data);
+    const d_b = try stream.cloneHtoD(f32, &b_data);
     defer d_b.deinit();
-    var d_c = try stream.cloneHtod(f32, &c_data);
+    var d_c = try stream.cloneHtoD(f32, &c_data);
     defer d_c.deinit();
 
     // C = I * B = B
@@ -43,7 +43,7 @@ test "GEMM end-to-end: 4x4 identity multiply" {
     try ctx.synchronize();
 
     var result: [16]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_c);
+    try stream.memcpyDtoH(f32, &result, d_c);
 
     for (0..16) |i| {
         try std.testing.expectApproxEqAbs(b_data[i], result[i], 1e-5);

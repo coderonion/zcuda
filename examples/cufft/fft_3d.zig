@@ -27,7 +27,7 @@ pub fn main() !void {
     std.debug.print("Input: 4x4x4 volume, impulse at origin\n", .{});
     std.debug.print("  data[0,0,0] = 1.0 + 0.0i\n\n", .{});
 
-    var d_data = try stream.cloneHtod(f32, &h_data);
+    var d_data = try stream.cloneHtoD(f32, &h_data);
     defer d_data.deinit();
 
     // Create 3D FFT plan
@@ -38,7 +38,7 @@ pub fn main() !void {
     try plan.execC2C(d_data, d_data, .forward);
     try ctx.synchronize();
 
-    try stream.memcpyDtoh(f32, &h_data, d_data);
+    try stream.memcpyDtoH(f32, &h_data, d_data);
 
     // Impulse at origin → all frequency bins = 1+0i
     std.debug.print("After forward FFT (impulse → flat spectrum):\n", .{});
@@ -58,7 +58,7 @@ pub fn main() !void {
     try plan.execC2C(d_data, d_data, .inverse);
     try ctx.synchronize();
 
-    try stream.memcpyDtoh(f32, &h_data, d_data);
+    try stream.memcpyDtoH(f32, &h_data, d_data);
 
     // After inverse, result is N * original (N = 64 for 4x4x4)
     const scale: f32 = @floatFromInt(n_elems);

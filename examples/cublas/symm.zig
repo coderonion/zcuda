@@ -53,9 +53,9 @@ pub fn main() !void {
         std.debug.print(" ]\n", .{});
     }
 
-    const d_A = try stream.cloneHtod(f32, &A_data);
+    const d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    const d_B = try stream.cloneHtod(f32, &B_data);
+    const d_B = try stream.cloneHtoD(f32, &B_data);
     defer d_B.deinit();
     const d_C = try stream.allocZeros(f32, allocator, @intCast(m * n));
     defer d_C.deinit();
@@ -64,7 +64,7 @@ pub fn main() !void {
     try blas.ssymm(.left, .lower, m, n, 1.0, d_A, m, d_B, m, 0.0, d_C, m);
 
     var C: [6]f32 = undefined;
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     std.debug.print("\nC = A·B ({}×{}):\n", .{ m, n });
     for (0..@intCast(m)) |r| {

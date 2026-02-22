@@ -26,9 +26,9 @@ pub fn main() !void {
     const x_data = [_]f32{ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0 };
     const y_data = [_]f32{ 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0 };
 
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
-    const d_y = try stream.cloneHtod(f32, &y_data);
+    const d_y = try stream.cloneHtoD(f32, &y_data);
     defer d_y.deinit();
 
     std.debug.print("  x = [ ", .{});
@@ -40,7 +40,7 @@ pub fn main() !void {
     try blas.saxpy(n, alpha, d_x, d_y);
 
     var h_result: [8]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_result, d_y);
+    try stream.memcpyDtoH(f32, &h_result, d_y);
 
     std.debug.print("  Result y = [ ", .{});
     for (&h_result) |v| std.debug.print("{d:.0} ", .{v});

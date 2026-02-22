@@ -11,7 +11,7 @@
 /// const ctx = try CudaContext.new(0);
 /// defer ctx.deinit();
 /// const stream = ctx.defaultStream();
-/// const data = try stream.cloneHtod(f32, &[_]f32{1, 2, 3});
+/// const data = try stream.cloneHtoD(f32, &[_]f32{1, 2, 3});
 /// defer data.deinit();
 /// ```
 pub const sys = @import("sys.zig");

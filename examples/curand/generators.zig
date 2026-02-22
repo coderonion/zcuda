@@ -38,7 +38,7 @@ pub fn main() !void {
 
         // Copy back and compute statistics
         var h_data: [n]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_data, d_data);
+        try stream.memcpyDtoH(f32, &h_data, d_data);
 
         var sum: f64 = 0.0;
         var min_v: f32 = std.math.floatMax(f32);
@@ -79,7 +79,7 @@ pub fn main() !void {
         try rng.fillNormal(d_normal, 0.0, 1.0);
 
         var h_normal: [n]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_normal, d_normal);
+        try stream.memcpyDtoH(f32, &h_normal, d_normal);
 
         var sum: f64 = 0.0;
         for (&h_normal) |v| sum += @as(f64, v);

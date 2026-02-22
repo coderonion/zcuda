@@ -258,7 +258,7 @@ pub const CU_STREAM_CAPTURE_STATUS_ACTIVE = c.CU_STREAM_CAPTURE_STATUS_ACTIVE;
 pub const cuStreamBeginCapture_v2 = c.cuStreamBeginCapture_v2;
 pub const cuStreamEndCapture = c.cuStreamEndCapture;
 pub const cuStreamIsCapturing = c.cuStreamIsCapturing;
-pub const cuGraphInstantiate_v2 = c.cuGraphInstantiate_v2;
+pub const cuGraphInstantiate = c.cuGraphInstantiate;
 pub const cuGraphDestroy = c.cuGraphDestroy;
 pub const cuGraphExecDestroy = c.cuGraphExecDestroy;
 pub const cuGraphLaunch = c.cuGraphLaunch;
@@ -279,6 +279,7 @@ pub const cuCtxDisablePeerAccess = c.cuCtxDisablePeerAccess;
 
 // Occupancy Calculator
 pub const cuOccupancyMaxActiveBlocksPerMultiprocessor = c.cuOccupancyMaxActiveBlocksPerMultiprocessor;
+pub const cuOccupancyMaxPotentialBlockSize = c.cuOccupancyMaxPotentialBlockSize;
 
 // Function Attributes (extended)
 pub const cuFuncSetAttribute = c.cuFuncSetAttribute;

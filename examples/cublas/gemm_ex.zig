@@ -33,9 +33,9 @@ pub fn main() !void {
     for (&A) |*v| v.* = @as(f32, @floatFromInt(random.intRangeAtMost(i32, 0, 5)));
     for (&B) |*v| v.* = @as(f32, @floatFromInt(random.intRangeAtMost(i32, 0, 5)));
 
-    const d_A = try stream.cloneHtod(f32, &A);
+    const d_A = try stream.cloneHtoD(f32, &A);
     defer d_A.deinit();
-    const d_B = try stream.cloneHtod(f32, &B);
+    const d_B = try stream.cloneHtoD(f32, &B);
     defer d_B.deinit();
     const d_C = try stream.allocZeros(f32, allocator, @intCast(m * n));
     defer d_C.deinit();
@@ -61,7 +61,7 @@ pub fn main() !void {
     );
 
     var C: [12]f32 = undefined;
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     std.debug.print("C = A × B ({}×{}, computed via GemmEx FP32):\n", .{ m, n });
     for (0..@intCast(m)) |r| {

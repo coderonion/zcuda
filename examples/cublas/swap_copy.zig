@@ -24,9 +24,9 @@ pub fn main() !void {
     // --- SCOPY: y = x ---
     std.debug.print("─── SCOPY: y = x ───\n", .{});
     {
-        const d_x = try stream.cloneHtod(f32, &a_data);
+        const d_x = try stream.cloneHtoD(f32, &a_data);
         defer d_x.deinit();
-        const d_y = try stream.cloneHtod(f32, &b_data);
+        const d_y = try stream.cloneHtoD(f32, &b_data);
         defer d_y.deinit();
 
         std.debug.print("  Before: x = [ ", .{});
@@ -38,7 +38,7 @@ pub fn main() !void {
         try blas.scopy(n, d_x, d_y);
 
         var h_y: [5]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_y, d_y);
+        try stream.memcpyDtoH(f32, &h_y, d_y);
 
         std.debug.print("  After:  y = [ ", .{});
         for (&h_y) |v| std.debug.print("{d:.0} ", .{v});
@@ -53,9 +53,9 @@ pub fn main() !void {
     // --- SSWAP: swap(x, y) ---
     std.debug.print("─── SSWAP: swap(x, y) ───\n", .{});
     {
-        const d_x = try stream.cloneHtod(f32, &a_data);
+        const d_x = try stream.cloneHtoD(f32, &a_data);
         defer d_x.deinit();
-        const d_y = try stream.cloneHtod(f32, &b_data);
+        const d_y = try stream.cloneHtoD(f32, &b_data);
         defer d_y.deinit();
 
         std.debug.print("  Before: x = [ ", .{});
@@ -68,8 +68,8 @@ pub fn main() !void {
 
         var h_x: [5]f32 = undefined;
         var h_y: [5]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_x, d_x);
-        try stream.memcpyDtoh(f32, &h_y, d_y);
+        try stream.memcpyDtoH(f32, &h_x, d_x);
+        try stream.memcpyDtoH(f32, &h_y, d_y);
 
         std.debug.print("  After:  x = [ ", .{});
         for (&h_x) |v| std.debug.print("{d:.0} ", .{v});

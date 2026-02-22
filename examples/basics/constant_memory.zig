@@ -61,7 +61,7 @@ pub fn main() !void {
     }
 
     // Copy input to device
-    const d_input = try stream.cloneHtod(f32, &h_input);
+    const d_input = try stream.cloneHtoD(f32, &h_input);
     defer d_input.deinit();
     const d_output = try stream.allocZeros(f32, allocator, n);
     defer d_output.deinit();
@@ -73,7 +73,7 @@ pub fn main() !void {
 
     // Copy results back
     var h_output: [100]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_output, d_output);
+    try stream.memcpyDtoH(f32, &h_output, d_output);
 
     // Verify results against CPU computation
     std.debug.print("─── Results ───\n", .{});

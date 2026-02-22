@@ -55,9 +55,9 @@ pub fn main() !void {
     }
 
     // Copy to device
-    const d_A = try stream.cloneHtod(f32, &A);
+    const d_A = try stream.cloneHtoD(f32, &A);
     defer d_A.deinit();
-    const d_B = try stream.cloneHtod(f32, &B);
+    const d_B = try stream.cloneHtoD(f32, &B);
     defer d_B.deinit();
     const d_C = try stream.allocZeros(f32, allocator, @intCast(m * n));
     defer d_C.deinit();
@@ -66,7 +66,7 @@ pub fn main() !void {
     try blas.sgemm(.no_transpose, .no_transpose, m, n, k, 1.0, d_A, m, d_B, k, 0.0, d_C, m);
 
     // Copy back
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     std.debug.print("\nC = A·B ({}×{}):\n", .{ m, n });
     for (0..@intCast(m)) |r| {

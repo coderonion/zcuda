@@ -554,7 +554,7 @@ pub const graph = struct {
     /// Instantiate an executable graph from a graph template.
     pub fn instantiate(g: sys.CUgraph) DriverError!sys.CUgraphExec {
         var exec: sys.CUgraphExec = undefined;
-        try toError(sys.cuGraphInstantiate_v2(&exec, g, null, null, 0));
+        try toError(sys.cuGraphInstantiate(&exec, g, 0));
         return exec;
     }
 
@@ -625,6 +625,15 @@ pub const occupancy = struct {
         var num_blocks: i32 = undefined;
         try toError(sys.cuOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, func, block_size, dynamic_smem_size));
         return num_blocks;
+    }
+
+    /// Suggest an optimal block size for maximum occupancy.
+    /// Returns .{ .min_grid_size, .block_size }.
+    pub fn maxPotentialBlockSize(func: sys.CUfunction, dynamic_smem_size: usize, block_size_limit: i32) DriverError!struct { min_grid_size: i32, block_size: i32 } {
+        var min_grid: i32 = undefined;
+        var block: i32 = undefined;
+        try toError(sys.cuOccupancyMaxPotentialBlockSize(&min_grid, &block, func, null, dynamic_smem_size, block_size_limit));
+        return .{ .min_grid_size = min_grid, .block_size = block };
     }
 };
 

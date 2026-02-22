@@ -40,11 +40,11 @@ pub fn main() !void {
     }
 
     // Copy to device
-    const d_a = try stream.cloneHtod(f32, &emb_a);
+    const d_a = try stream.cloneHtoD(f32, &emb_a);
     defer d_a.deinit();
-    const d_b = try stream.cloneHtod(f32, &emb_b);
+    const d_b = try stream.cloneHtoD(f32, &emb_b);
     defer d_b.deinit();
-    const d_c = try stream.cloneHtod(f32, &emb_c);
+    const d_c = try stream.cloneHtoD(f32, &emb_c);
     defer d_c.deinit();
 
     // Compute norms

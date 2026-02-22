@@ -35,7 +35,7 @@ pub fn main() !void {
     std.debug.print("\n\n", .{});
 
     // Allocate device memory
-    const d_data = try stream.cloneHtod(f32, &h_input);
+    const d_data = try stream.cloneHtoD(f32, &h_input);
     defer d_data.deinit();
     const d_out = try stream.alloc(f32, allocator, complex_n);
     defer d_out.deinit();
@@ -49,7 +49,7 @@ pub fn main() !void {
     try plan.execC2C(d_data, d_out, .forward);
 
     var h_fft: [complex_n]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_fft, d_out);
+    try stream.memcpyDtoH(f32, &h_fft, d_out);
 
     std.debug.print("FFT output (frequency domain):\n  ", .{});
     for (0..n) |k| {
@@ -69,7 +69,7 @@ pub fn main() !void {
     try plan_inv.execC2C(d_out, d_data, .inverse);
 
     var h_result: [complex_n]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_result, d_data);
+    try stream.memcpyDtoH(f32, &h_result, d_data);
 
     // cuFFT inverse is unnormalized — divide by N
     std.debug.print("Roundtrip (after IFFT/N):\n  ", .{});

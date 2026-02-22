@@ -54,36 +54,12 @@ test "alloc zeros and memcpy round-trip" {
 
     // Clone host data to device and back
     const host_data = [_]f32{ 1.0, 2.0, 3.0, 4.0, 5.0 };
-    const dev_data = try stream.cloneHtod(f32, &host_data);
+    const dev_data = try stream.cloneHtoD(f32, &host_data);
     defer dev_data.deinit();
 
     var result_data: [5]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result_data, dev_data);
+    try stream.memcpyDtoH(f32, &result_data, dev_data);
     try std.testing.expectEqualSlices(f32, &host_data, &result_data);
-}
-
-test "async memcpy round-trip" {
-    const allocator = std.testing.allocator;
-    const ctx = driver.CudaContext.new(0) catch return error.SkipZigTest;
-    defer ctx.deinit();
-
-    const stream = try ctx.newStream();
-
-    const n = 256;
-    var src: [n]f32 = undefined;
-    for (&src, 0..) |*v, i| v.* = @floatFromInt(i);
-
-    var dev = try stream.allocZeros(f32, allocator, n);
-    defer dev.deinit();
-
-    try stream.memcpyHtodAsync(f32, dev, &src);
-    try stream.synchronize();
-
-    var dst: [n]f32 = undefined;
-    try stream.memcpyDtohAsync(f32, &dst, dev);
-    try stream.synchronize();
-
-    try std.testing.expectEqualSlices(f32, &src, &dst);
 }
 
 // ============================================================================

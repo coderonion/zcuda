@@ -60,14 +60,14 @@ Asynchronous execution stream for memory operations and kernel launches.
 ```zig
 fn alloc(T, allocator, n) !CudaSlice(T);          // Allocate device memory
 fn allocZeros(T, allocator, n) !CudaSlice(T);     // Allocate + zero-fill
-fn cloneHtod(T, host_slice) !CudaSlice(T);        // Host → Device copy
-fn memcpyHtod(T, dst, src) !void;                  // Copy host → device
-fn memcpyDtoh(T, dst, src) !void;                  // Copy device → host
-fn cloneDtoh(T, allocator, src) ![]T;              // Clone device → new host buf
+fn cloneHtoD(T, host_slice) !CudaSlice(T);        // Host → Device copy
+fn memcpyHtoD(T, dst, src) !void;                  // Copy host → device
+fn memcpyDtoH(T, dst, src) !void;                  // Copy device → host
+fn cloneDtoH(T, allocator, src) ![]T;              // Clone device → new host buf
 fn memcpyDtoD(T, dst, src) !void;                  // Copy device → device
-fn memcpyHtodAsync(T, dst, src) !void;             // Async host → device
-fn memcpyDtohAsync(T, dst, src) !void;             // Async device → host
-fn memcpyDtodAsync(T, dst, src) !void;             // Async device → device
+fn memcpyHtoDAsync(T, dst, src) !void;             // Async host → device
+fn memcpyDtoHAsync(T, dst, src) !void;             // Async device → host
+fn memcpyDtoDAsync(T, dst, src) !void;             // Async device → device
 ```
 
 ### Kernel Launch
@@ -169,9 +169,9 @@ const ctx = try cuda.driver.CudaContext.new(0);
 defer ctx.deinit();
 
 const stream = ctx.defaultStream();
-const data = try stream.cloneHtod(f32, &[_]f32{ 1.0, 2.0, 3.0 });
+const data = try stream.cloneHtoD(f32, &[_]f32{ 1.0, 2.0, 3.0 });
 defer data.deinit();
 
 var result: [3]f32 = undefined;
-try stream.memcpyDtoh(f32, &result, data);
+try stream.memcpyDtoH(f32, &result, data);
 ```

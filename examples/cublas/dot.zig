@@ -23,9 +23,9 @@ pub fn main() !void {
     const x_data = [_]f32{ 1.0, 0.0, 3.0, 0.0, 5.0, 0.0 };
     const y_data = [_]f32{ 0.0, 2.0, 0.0, 4.0, 0.0, 6.0 };
 
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
-    const d_y = try stream.cloneHtod(f32, &y_data);
+    const d_y = try stream.cloneHtoD(f32, &y_data);
     defer d_y.deinit();
 
     std.debug.print("x = [ ", .{});
@@ -52,9 +52,9 @@ pub fn main() !void {
     const a_data = [_]f32{ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
     const b_data = [_]f32{ 6.0, 5.0, 4.0, 3.0, 2.0, 1.0 };
 
-    const d_a = try stream.cloneHtod(f32, &a_data);
+    const d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
-    const d_b = try stream.cloneHtod(f32, &b_data);
+    const d_b = try stream.cloneHtoD(f32, &b_data);
     defer d_b.deinit();
 
     const dot_ab = try blas.sdot(n, d_a, d_b);

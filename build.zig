@@ -1,6 +1,13 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const posix = std.posix;
+const Step = std.Build.Step;
+
+/// Re-export build_helpers for downstream users.
+/// Usage in downstream build.zig:
+///   const zcuda = @import("zcuda");
+///   const kernels = zcuda.build_helpers.discoverKernels(b, "src/kernel/");
+pub const build_helpers = @import("build_helpers.zig");
 
 /// Check if a file exists at the given absolute path using faccessat.
 fn fileExists(path: []const u8) bool {
@@ -127,8 +134,11 @@ pub fn build(b: *std.Build) !void {
 
     // --- Build options ---
     const cuda_path_opt = b.option([]const u8, "cuda-path", "Path to CUDA installation (default: auto-detect)");
-    const cuda_path = try findCudaPath(b.allocator, cuda_path_opt);
-    const cuda_include = try std.fmt.allocPrint(b.allocator, "{s}/include", .{cuda_path});
+    const cuda_path: ?[]const u8 = findCudaPath(b.allocator, cuda_path_opt) catch null;
+    const cuda_include: ?[]const u8 = if (cuda_path) |cp|
+        try std.fmt.allocPrint(b.allocator, "{s}/include", .{cp})
+    else
+        null;
     const cudnn_include = findCudnnIncludePath(b.allocator);
 
     // Feature flags (default: core modules enabled)
@@ -143,6 +153,27 @@ pub fn build(b: *std.Build) !void {
     const enable_cupti = b.option(bool, "cupti", "Enable CUPTI bindings (default: false)") orelse false;
     const enable_cufile = b.option(bool, "cufile", "Enable cuFile (GPUDirect Storage) bindings (default: false)") orelse false;
     const enable_nvtx = b.option(bool, "nvtx", "Enable NVTX bindings (default: false)") orelse false;
+
+    // ── Union-of-libs scan ──
+    // Scan all example/integration-example .libs strings and OR into the global
+    // enable_* flags so that zcuda_mod's build_options satisfy every @compileError
+    // guard in src/cuda.zig WITHOUT needing per-example zcuda modules.
+    // Keeping a single zcuda_mod avoids the "file exists in modules zcuda/zcuda0" error
+    // that occurs when bridge modules are shared across examples.
+    const all_example_libs: []const u8 =
+        "cublas,cublaslt,curand,nvrtc" // examples/cublas/, examples/curand/, examples/nvrtc/
+        ++ ",cufft"                     // examples/cufft/, integration E_cuFFT_Pipelines
+        ++ ",cusolver,cusparse"         // examples/cusolver/, examples/cusparse/
+        ++ ",cudnn,nvtx,cupti,cufile";  // optional extras
+    // Override: if any example/integration needs a lib, also enable it in zcuda_mod.
+    // Using std.mem.indexOf on the aggregated string is evaluated at build time.
+    const eff_cufft    = enable_cufft    or (std.mem.indexOf(u8, all_example_libs, "cufft")    != null);
+    const eff_cusolver = enable_cusolver or (std.mem.indexOf(u8, all_example_libs, "cusolver") != null);
+    const eff_cusparse = enable_cusparse or (std.mem.indexOf(u8, all_example_libs, "cusparse") != null);
+    const eff_cudnn    = enable_cudnn    or (std.mem.indexOf(u8, all_example_libs, "cudnn")    != null);
+    const eff_cupti    = enable_cupti    or (std.mem.indexOf(u8, all_example_libs, "cupti")    != null);
+    const eff_cufile   = enable_cufile   or (std.mem.indexOf(u8, all_example_libs, "cufile")   != null);
+    const eff_nvtx     = enable_nvtx     or (std.mem.indexOf(u8, all_example_libs, "nvtx")     != null);
 
     // Library paths to search
     const lib_paths = [_][]const u8{
@@ -160,23 +191,13 @@ pub fn build(b: *std.Build) !void {
     build_options.addOption(bool, "enable_cublaslt", enable_cublaslt);
     build_options.addOption(bool, "enable_curand", enable_curand);
     build_options.addOption(bool, "enable_nvrtc", enable_nvrtc);
-    build_options.addOption(bool, "enable_cudnn", enable_cudnn);
-    build_options.addOption(bool, "enable_cusolver", enable_cusolver);
-    build_options.addOption(bool, "enable_cusparse", enable_cusparse);
-    build_options.addOption(bool, "enable_cufft", enable_cufft);
-    build_options.addOption(bool, "enable_cupti", enable_cupti);
-    build_options.addOption(bool, "enable_cufile", enable_cufile);
-    build_options.addOption(bool, "enable_nvtx", enable_nvtx);
-
-    // ── Export zcuda as a Zig package for downstream consumers ──
-    // Create the zcuda module — downstream users just call:
-    //   exe.root_module.addImport("zcuda", dep.module("zcuda"));
-    // System library linking propagates transitively via the module.
-    const zcuda_mod = b.addModule("zcuda", .{
-        .root_source_file = b.path("src/cuda.zig"),
-    });
-    zcuda_mod.addOptions("build_options", build_options);
-    try configurePaths(zcuda_mod, cuda_path, cuda_include, cudnn_include, &lib_paths, b.allocator);
+    build_options.addOption(bool, "enable_cudnn",    eff_cudnn);
+    build_options.addOption(bool, "enable_cusolver", eff_cusolver);
+    build_options.addOption(bool, "enable_cusparse", eff_cusparse);
+    build_options.addOption(bool, "enable_cufft",    eff_cufft);
+    build_options.addOption(bool, "enable_cupti",    eff_cupti);
+    build_options.addOption(bool, "enable_cufile",   eff_cufile);
+    build_options.addOption(bool, "enable_nvtx",     eff_nvtx);
 
     const lib_opts = LibOpts{
         .cublas = enable_cublas,
@@ -192,9 +213,30 @@ pub fn build(b: *std.Build) !void {
         .nvtx = enable_nvtx,
     };
 
-    // Link CUDA libraries onto the exported module so they propagate
-    // transitively to any downstream executable that imports "zcuda".
-    linkLibrariesToModule(zcuda_mod, lib_opts);
+    // ── Export zcuda as a Zig package for downstream consumers ──
+    // Host-side features require CUDA installation.
+    // Kernel compilation (compile-kernels) works without CUDA.
+    // NOTE: System libraries (cuda, cudart, etc.) are NOT linked here —
+    // linking must happen on compile steps with known targets, not on
+    // exported modules. Downstream consumers call linkLibraries() on
+    // their own compile steps. Internal tests/examples do the same below.
+    const zcuda_mod = b.addModule("zcuda", .{
+        .root_source_file = b.path("src/cuda.zig"),
+    });
+    zcuda_mod.addOptions("build_options", build_options);
+    if (cuda_path) |cp| {
+        try configurePaths(zcuda_mod, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator);
+    }
+
+
+    // ── Export zcuda_bridge module for Way 5 kernel bridges ──
+    // Downstream users import this to create type-safe kernel bridge modules.
+    // See src/kernel/bridge_gen.zig for usage documentation.
+    const zcuda_bridge_mod = b.addModule("zcuda_bridge", .{
+        .root_source_file = b.path("src/kernel/bridge_gen.zig"),
+    });
+    zcuda_bridge_mod.addImport("zcuda", zcuda_mod);
+
     // ── Export zcuda as a Zig package for downstream consumers ──
 
     // --- Unit tests (test/unit/*) ---
@@ -218,11 +260,83 @@ pub fn build(b: *std.Build) !void {
         });
         unit.root_module.addImport("zcuda", zcuda_mod);
         unit.root_module.addOptions("build_options", build_options);
-        try configurePaths(unit.root_module, cuda_path, cuda_include, cudnn_include, &lib_paths, b.allocator);
+        if (cuda_path) |cp| {
+            try configurePaths(unit.root_module, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator);
+        }
         linkLibraries(unit, lib_opts);
 
-        const run_unit = b.addRunArtifact(unit);
+        // GPU-linked tests use addGpuTestRun to avoid Zig's --listen=- IPC
+        // protocol, which conflicts with CUDA's dynamic library.
+        // Pure Zig tests (types_test) use the normal addRunArtifact.
+        const is_gpu_test = !std.mem.endsWith(u8, test_path, "types_test.zig");
+        const run_unit = if (is_gpu_test)
+            addGpuTestRun(b, unit)
+        else
+            b.addRunArtifact(unit);
         unit_test_step.dependOn(&run_unit.step);
+    }
+
+    // Kernel module unit tests (no CUDA dependency — pure Zig logic)
+    {
+        // Build options for kernel modules that depend on SM version
+        // (Default sm_80 — tests only check declarations/comptime, not GPU runtime)
+        const kernel_test_options = b.addOptions();
+        kernel_test_options.addOption(u32, "sm_version", 80);
+
+        // Helper: create a module for a kernel source file with build_options
+        const KernelTestEntry = struct {
+            test_path: []const u8,
+            import_name: []const u8,
+            source_path: []const u8,
+            needs_build_options: bool,
+            needs_zcuda: bool = false,
+        };
+
+        const kernel_tests = [_]KernelTestEntry{
+            // Pure-Zig type tests (no GPU needed)
+            .{ .test_path = "test/unit/kernel/kernel_shared_types_test.zig", .import_name = "shared_types", .source_path = "src/kernel/shared_types.zig", .needs_build_options = false },
+            .{ .test_path = "test/unit/kernel/kernel_types_test.zig", .import_name = "shared_types", .source_path = "src/kernel/shared_types.zig", .needs_build_options = false },
+            .{ .test_path = "test/unit/kernel/kernel_arch_test.zig", .import_name = "arch", .source_path = "src/kernel/arch.zig", .needs_build_options = false },
+            // Correctness tests (need build_options for SM version)
+            .{ .test_path = "test/unit/kernel/kernel_device_types_test.zig", .import_name = "types", .source_path = "src/kernel/types.zig", .needs_build_options = true },
+            .{ .test_path = "test/unit/kernel/kernel_device_test.zig", .import_name = "types", .source_path = "src/kernel/types.zig", .needs_build_options = true, .needs_zcuda = true },
+            .{ .test_path = "test/unit/kernel/kernel_debug_test.zig", .import_name = "debug", .source_path = "src/kernel/debug.zig", .needs_build_options = true },
+            .{ .test_path = "test/unit/kernel/kernel_shared_mem_test.zig", .import_name = "shared_mem", .source_path = "src/kernel/shared_mem.zig", .needs_build_options = true },
+            .{ .test_path = "test/unit/kernel/kernel_intrinsics_host_test.zig", .import_name = "intrinsics", .source_path = "src/kernel/intrinsics.zig", .needs_build_options = true },
+            .{ .test_path = "test/unit/kernel/kernel_tensor_core_host_test.zig", .import_name = "tensor_core", .source_path = "src/kernel/tensor_core.zig", .needs_build_options = true },
+            .{ .test_path = "test/unit/kernel/kernel_grid_stride_test.zig", .import_name = "types", .source_path = "src/kernel/types.zig", .needs_build_options = true },
+        };
+
+        for (kernel_tests) |entry| {
+            const src_mod = b.createModule(.{
+                .root_source_file = b.path(entry.source_path),
+                .target = target,
+                .optimize = optimize,
+            });
+            if (entry.needs_build_options) {
+                src_mod.addOptions("build_options", kernel_test_options);
+            }
+
+            const t = b.addTest(.{
+                .root_module = b.createModule(.{
+                    .root_source_file = b.path(entry.test_path),
+                    .target = target,
+                    .optimize = optimize,
+                }),
+            });
+            t.root_module.addImport(entry.import_name, src_mod);
+            if (entry.needs_zcuda) {
+                t.root_module.addImport("zcuda", zcuda_mod);
+                t.root_module.addImport("test_helpers", b.createModule(.{
+                    .root_source_file = b.path("test/helpers.zig"),
+                    .imports = &.{.{ .name = "zcuda", .module = zcuda_mod }},
+                }));
+                linkLibrariesToModule(t.root_module, lib_opts);
+            }
+
+            const run = b.addRunArtifact(t);
+            unit_test_step.dependOn(&run.step);
+        }
     }
 
     // Conditional unit tests (require specific library flags)
@@ -249,10 +363,12 @@ pub fn build(b: *std.Build) !void {
         });
         unit.root_module.addImport("zcuda", zcuda_mod);
         unit.root_module.addOptions("build_options", build_options);
-        try configurePaths(unit.root_module, cuda_path, cuda_include, cudnn_include, &lib_paths, b.allocator);
+        if (cuda_path) |cp| {
+            try configurePaths(unit.root_module, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator);
+        }
         linkLibraries(unit, lib_opts);
 
-        const run_unit = b.addRunArtifact(unit);
+        const run_unit = addGpuTestRun(b, unit);
         unit_test_step.dependOn(&run_unit.step);
     }
 
@@ -271,6 +387,14 @@ pub fn build(b: *std.Build) !void {
         .{ .path = "test/integration/svd_reconstruct_test.zig", .enabled = enable_cusolver },
         .{ .path = "test/integration/sparse_pipeline_test.zig", .enabled = enable_cusparse },
         .{ .path = "test/integration/conv_relu_test.zig", .enabled = enable_cudnn },
+        .{ .path = "test/integration/kernel/kernel_pipeline_test.zig", .enabled = true },
+        // Kernel module integration tests (GPU correctness verification)
+        .{ .path = "test/integration/kernel/kernel_intrinsics_gpu_test.zig", .enabled = true },
+        .{ .path = "test/integration/kernel/kernel_reduction_test.zig", .enabled = true },
+        .{ .path = "test/integration/kernel/kernel_memory_lifecycle_test.zig", .enabled = true },
+        .{ .path = "test/integration/kernel/kernel_event_timing_test.zig", .enabled = true },
+        .{ .path = "test/integration/kernel/kernel_shared_mem_gpu_test.zig", .enabled = true },
+        .{ .path = "test/integration/kernel/kernel_softmax_test.zig", .enabled = true },
     };
 
     for (integration_tests) |ct| {
@@ -283,11 +407,17 @@ pub fn build(b: *std.Build) !void {
             }),
         });
         integration.root_module.addImport("zcuda", zcuda_mod);
+        integration.root_module.addImport("test_helpers", b.createModule(.{
+            .root_source_file = b.path("test/helpers.zig"),
+            .imports = &.{.{ .name = "zcuda", .module = zcuda_mod }},
+        }));
         integration.root_module.addOptions("build_options", build_options);
-        try configurePaths(integration.root_module, cuda_path, cuda_include, cudnn_include, &lib_paths, b.allocator);
+        if (cuda_path) |cp| {
+            try configurePaths(integration.root_module, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator);
+        }
         linkLibraries(integration, lib_opts);
 
-        const run_integration = b.addRunArtifact(integration);
+        const run_integration = addGpuTestRun(b, integration);
         integration_test_step.dependOn(&run_integration.step);
     }
 
@@ -391,8 +521,24 @@ pub fn build(b: *std.Build) !void {
         });
         example.root_module.addImport("zcuda", zcuda_mod);
         example.root_module.addOptions("build_options", build_options);
-        try configurePaths(example.root_module, cuda_path, cuda_include, cudnn_include, &lib_paths, b.allocator);
-        linkLibraries(example, lib_opts);
+        if (cuda_path) |cp| {
+            try configurePaths(example.root_module, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator);
+        }
+        // Compute per-example lib_opts: enable libraries declared in `libs` field
+        var ex_lib_opts = lib_opts;
+        if (std.mem.indexOf(u8, ex.libs, "cublas") != null) ex_lib_opts.cublas = true;
+        if (std.mem.indexOf(u8, ex.libs, "cublaslt") != null) ex_lib_opts.cublaslt = true;
+        if (std.mem.indexOf(u8, ex.libs, "curand") != null) ex_lib_opts.curand = true;
+        if (std.mem.indexOf(u8, ex.libs, "nvrtc") != null) ex_lib_opts.nvrtc = true;
+        if (std.mem.indexOf(u8, ex.libs, "cudnn") != null) ex_lib_opts.cudnn = true;
+        if (std.mem.indexOf(u8, ex.libs, "cusolver") != null) ex_lib_opts.cusolver = true;
+        if (std.mem.indexOf(u8, ex.libs, "cusparse") != null) ex_lib_opts.cusparse = true;
+        if (std.mem.indexOf(u8, ex.libs, "cufft") != null) ex_lib_opts.cufft = true;
+        if (std.mem.indexOf(u8, ex.libs, "cupti") != null) ex_lib_opts.cupti = true;
+        if (std.mem.indexOf(u8, ex.libs, "cufile") != null) ex_lib_opts.cufile = true;
+        if (std.mem.indexOf(u8, ex.libs, "nvtx") != null) ex_lib_opts.nvtx = true;
+        linkLibraries(example, ex_lib_opts);
+
 
         const install_example = b.addInstallArtifact(example, .{});
         const example_step = b.step(
@@ -408,4 +554,231 @@ pub fn build(b: *std.Build) !void {
         );
         run_example_step.dependOn(&run_example.step);
     }
+
+    // ── GPU Kernel Compilation (Zig → PTX) ──
+    // Compiles .zig kernel files to PTX assembly using the nvptx64-cuda-none target.
+    // Usage: zig build compile-kernels
+    //        zig build compile-kernels -Dgpu-arch=sm_80
+    //        zig build -Dembed-ptx        (embed PTX in binary for single-file deployment)
+    const kernel_step = b.step("compile-kernels", "Compile Zig GPU kernels to PTX");
+
+    // PTX embedding option for production deployment
+    const embed_ptx = b.option(bool, "embed-ptx", "Embed PTX data in binary for single-file deployment (default: false)") orelse false;
+
+    // GPU architecture option (default: sm_80 / Ampere)
+    const gpu_arch_str = b.option([]const u8, "gpu-arch", "Target GPU SM architecture (default: sm_80)") orelse "sm_80";
+    const sm_version = build_helpers.parseSmVersion(gpu_arch_str);
+
+    // Resolve the nvptx64 target with the correct SM architecture
+    const nvptx_target = build_helpers.resolveNvptxTarget(b, gpu_arch_str);
+
+    // Build options module to pass SM version as comptime value
+    const device_options = b.addOptions();
+    device_options.addOption(u32, "sm_version", sm_version);
+
+    // Device intrinsics module for GPU kernels
+    const device_mod = b.createModule(.{
+        .root_source_file = b.path("src/kernel/device.zig"),
+        .target = nvptx_target,
+        .optimize = .ReleaseFast,
+    });
+    device_mod.addOptions("build_options", device_options);
+
+    // ── Kernel discovery + bridge generation via build_helpers.zig ──
+    // Recursively scans kernel directory for .zig files containing `export fn`,
+    // compiles each to PTX, and generates type-safe bridge modules.
+
+    const kernel_dir = b.option([]const u8, "kernel-dir", "Root directory for kernel auto-discovery (default: src/kernel/)") orelse "src/kernel/";
+    const discovered = build_helpers.discoverKernels(b, kernel_dir);
+    const bridge_result = build_helpers.addBridgeModules(b, discovered, .{
+        .embed_ptx = embed_ptx,
+        .zcuda_bridge_mod = zcuda_bridge_mod,
+        .zcuda_mod = zcuda_mod,
+        .device_mod = device_mod,
+        .nvptx_target = nvptx_target,
+        .kernel_step = kernel_step,
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // Discover example kernels for integration examples (if examples/kernel/ exists and
+    // kernel-dir doesn't already point there to avoid duplicate discovery)
+    const example_bridge_result = if (!std.mem.startsWith(u8, kernel_dir, "examples/kernel"))
+        build_helpers.addBridgeModules(b, build_helpers.discoverKernels(b, "examples/kernel/"), .{
+            .embed_ptx = embed_ptx,
+            .zcuda_bridge_mod = zcuda_bridge_mod,
+            .zcuda_mod = zcuda_mod,
+            .device_mod = device_mod,
+            .nvptx_target = nvptx_target,
+            .kernel_step = kernel_step,
+            .target = target,
+            .optimize = optimize,
+        })
+    else
+        bridge_result;
+
+    // Configure CUDA paths on bridge modules (needed for host-side driver API calls)
+    for (bridge_result.modules) |entry| {
+        if (cuda_path) |cp| {
+            configurePaths(entry.module, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator) catch continue;
+        }
+        linkLibrariesToModule(entry.module, lib_opts);
+    }
+    if (!std.mem.startsWith(u8, kernel_dir, "examples/kernel")) {
+        for (example_bridge_result.modules) |entry| {
+            if (cuda_path) |cp| {
+                configurePaths(entry.module, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator) catch continue;
+            }
+            linkLibrariesToModule(entry.module, lib_opts);
+        }
+    }
+
+    // ── 10_Integration host-side examples ──
+    // Each integration example is an executable that imports zcuda + kernel bridge modules.
+    const IntExample = struct {
+        name: []const u8,
+        desc: []const u8,
+        path: []const u8,
+        bridges: []const []const u8, // which bridge module import names to add
+        libs: []const u8,
+    };
+    const integration_examples = [_]IntExample{
+        .{ .name = "integration-module-load-launch", .desc = "Driver lifecycle: load+launch", .path = "examples/kernel/10_Integration/A_DriverLifecycle/module_load_launch.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        .{ .name = "integration-ptx-compile-execute", .desc = "PTX compile+execute", .path = "examples/kernel/10_Integration/A_DriverLifecycle/ptx_compile_execute.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        // B_StreamsAndEvents
+        .{ .name = "integration-stream-callback", .desc = "Stream callback pattern", .path = "examples/kernel/10_Integration/B_StreamsAndEvents/stream_callback.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        .{ .name = "integration-stream-concurrency", .desc = "Multi-stream concurrency", .path = "examples/kernel/10_Integration/B_StreamsAndEvents/stream_concurrency.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        // C_CudaGraphs
+        .{ .name = "integration-basic-graph", .desc = "CUDA Graph basics", .path = "examples/kernel/10_Integration/C_CudaGraphs/basic_graph.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        .{ .name = "integration-graph-replay-update", .desc = "Graph replay + update", .path = "examples/kernel/10_Integration/C_CudaGraphs/graph_replay_update.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        .{ .name = "integration-graph-with-deps", .desc = "Graph with dependencies", .path = "examples/kernel/10_Integration/C_CudaGraphs/graph_with_dependencies.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        // D_cuBLAS_Pipelines
+        .{ .name = "integration-scale-bias-gemm", .desc = "cuBLAS Scale+Bias→GEMM→ReLU", .path = "examples/kernel/10_Integration/D_cuBLAS_Pipelines/scale_bias_gemm.zig", .bridges = &.{ "kernel_scale_bias", "kernel_relu" }, .libs = "cublas" },
+        .{ .name = "integration-residual-gemm", .desc = "cuBLAS Residual GEMM", .path = "examples/kernel/10_Integration/D_cuBLAS_Pipelines/residual_gemm.zig", .bridges = &.{"kernel_residual_norm"}, .libs = "cublas" },
+        // E_ErrorHandling
+        .{ .name = "integration-error-recovery", .desc = "Error recovery patterns", .path = "examples/kernel/10_Integration/E_ErrorHandling/error_recovery.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        .{ .name = "integration-oob-launch", .desc = "Out-of-bounds launch", .path = "examples/kernel/10_Integration/E_ErrorHandling/oob_launch.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        // E_cuFFT_Pipelines
+        .{ .name = "integration-fft-filter", .desc = "FFT filter pipeline", .path = "examples/kernel/10_Integration/E_cuFFT_Pipelines/fft_filter_pipeline.zig", .bridges = &.{ "kernel_signal_gen", "kernel_freq_filter" }, .libs = "cufft" },
+        .{ .name = "integration-conv2d-fft", .desc = "2D convolution via FFT", .path = "examples/kernel/10_Integration/E_cuFFT_Pipelines/conv2d_fft.zig", .bridges = &.{ "kernel_pad_2d", "kernel_complex_mul" }, .libs = "cufft" },
+        // F_Profiling
+        .{ .name = "integration-occupancy-calc", .desc = "Occupancy calculator", .path = "examples/kernel/10_Integration/F_Profiling/occupancy_calculator.zig", .bridges = &.{"kernel_vector_add"}, .libs = "" },
+        // F_cuRAND_Applications
+        .{ .name = "integration-monte-carlo-option", .desc = "Monte Carlo option pricing", .path = "examples/kernel/10_Integration/F_cuRAND_Applications/monte_carlo_option.zig", .bridges = &.{"kernel_gbm_paths"}, .libs = "curand" },
+        .{ .name = "integration-particle-system", .desc = "Particle system simulation", .path = "examples/kernel/10_Integration/F_cuRAND_Applications/particle_system.zig", .bridges = &.{ "kernel_particle_init", "kernel_particle_step" }, .libs = "curand" },
+        // G_EndToEnd
+        .{ .name = "integration-matmul-e2e", .desc = "Matmul end-to-end", .path = "examples/kernel/10_Integration/G_EndToEnd/matmul_e2e.zig", .bridges = &.{"kernel_matmul_naive"}, .libs = "" },
+        .{ .name = "integration-reduction-e2e", .desc = "Reduction end-to-end", .path = "examples/kernel/10_Integration/G_EndToEnd/reduction_e2e.zig", .bridges = &.{"kernel_reduce_sum"}, .libs = "" },
+        .{ .name = "integration-saxpy-e2e", .desc = "SAXPY end-to-end", .path = "examples/kernel/10_Integration/G_EndToEnd/saxpy_e2e.zig", .bridges = &.{"kernel_saxpy"}, .libs = "" },
+        // G_LibraryCombined
+        .{ .name = "integration-multi-library", .desc = "Multi-library pipeline", .path = "examples/kernel/10_Integration/G_LibraryCombined/multi_library_pipeline.zig", .bridges = &.{ "kernel_sigmoid", "kernel_extract_diag" }, .libs = "cublas,curand,cufft" },
+        // H_TensorCore_Pipelines
+        .{ .name = "integration-wmma-gemm-verify", .desc = "WMMA GEMM verification", .path = "examples/kernel/10_Integration/H_TensorCore_Pipelines/wmma_gemm_verify.zig", .bridges = &.{"kernel_wmma_gemm_f16"}, .libs = "cublas" },
+        .{ .name = "integration-attention-pipeline", .desc = "Attention pipeline", .path = "examples/kernel/10_Integration/H_TensorCore_Pipelines/attention_pipeline.zig", .bridges = &.{ "kernel_wmma_gemm_bf16", "kernel_softmax" }, .libs = "cublas" },
+        .{ .name = "integration-mixed-precision-train", .desc = "Mixed precision training", .path = "examples/kernel/10_Integration/H_TensorCore_Pipelines/mixed_precision_train.zig", .bridges = &.{ "kernel_wmma_gemm_f16", "kernel_relu" }, .libs = "cublas,curand" },
+        // I_Performance
+        .{ .name = "integration-perf-benchmark", .desc = "Zig kernel vs cuBLAS (Event-timed)", .path = "examples/kernel/10_Integration/I_Performance/perf_benchmark.zig", .bridges = &.{ "kernel_vector_add", "kernel_matmul_tiled" }, .libs = "cublas" },
+    };
+
+    const integration_step = b.step("example-integration", "Build 10_Integration examples");
+    for (integration_examples) |iex| {
+        const exe = b.addExecutable(.{
+            .name = iex.name,
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(iex.path),
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+        exe.root_module.addImport("zcuda", zcuda_mod);
+        exe.root_module.addOptions("build_options", build_options);
+        if (cuda_path) |cp| {
+            try configurePaths(exe.root_module, cp, cuda_include.?, cudnn_include, &lib_paths, b.allocator);
+        }
+
+        // Link required libraries based on the libs field
+        var int_lib_opts = lib_opts;
+        if (std.mem.indexOf(u8, iex.libs, "cublas") != null) int_lib_opts.cublas = true;
+        if (std.mem.indexOf(u8, iex.libs, "curand") != null) int_lib_opts.curand = true;
+        if (std.mem.indexOf(u8, iex.libs, "cufft") != null) int_lib_opts.cufft = true;
+        linkLibraries(exe, int_lib_opts);
+
+        const install_exe = b.addInstallArtifact(exe, .{});
+
+        // Add kernel bridge module imports (search both main and example bridges)
+        for (iex.bridges) |bridge_name| {
+            const mod = build_helpers.findBridge(bridge_result.modules, bridge_name) orelse
+                build_helpers.findBridge(example_bridge_result.modules, bridge_name);
+            if (mod) |m| {
+                exe.root_module.addImport(bridge_name, m);
+            }
+            // For disk-mode bridges (LLVM-compiled, no embedded PTX), ensure the
+            // PTX install step runs before the executable is installed.
+            const ptx_step = build_helpers.findBridgeInstallStep(bridge_result.modules, bridge_name) orelse
+                build_helpers.findBridgeInstallStep(example_bridge_result.modules, bridge_name);
+            if (ptx_step) |s| {
+                install_exe.step.dependOn(s);
+            }
+        }
+
+        integration_step.dependOn(&install_exe.step);
+
+        // Per-example build step: zig build example-integration-xxx
+        const per_step = b.step(
+            try std.fmt.allocPrint(b.allocator, "example-{s}", .{iex.name}),
+            try std.fmt.allocPrint(b.allocator, "Build {s}", .{iex.desc}),
+        );
+        per_step.dependOn(&install_exe.step);
+    }
+}
+
+
+fn addKernelTarget(
+    b: *std.Build,
+    kernel_step: *std.Build.Step,
+    device_mod: *std.Build.Module,
+    nvptx_target: std.Build.ResolvedTarget,
+    name: []const u8,
+    desc: []const u8,
+    kernel_path: []const u8,
+) void {
+    const kernel_obj = b.addObject(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(kernel_path),
+            .target = nvptx_target,
+            .optimize = .ReleaseFast,
+        }),
+    });
+    kernel_obj.root_module.addImport("zcuda_kernel", device_mod);
+
+    const ptx_output = kernel_obj.getEmittedAsm();
+    const install_ptx = b.addInstallFile(ptx_output, std.fmt.allocPrint(
+        b.allocator,
+        "bin/kernel/{s}.ptx",
+        .{name},
+    ) catch @panic("OOM"));
+
+    kernel_step.dependOn(&install_ptx.step);
+
+    const per_kernel_step = b.step(
+        std.fmt.allocPrint(b.allocator, "kernel-{s}", .{name}) catch @panic("OOM"),
+        std.fmt.allocPrint(b.allocator, "Compile {s}: {s}", .{ name, desc }) catch @panic("OOM"),
+    );
+    per_kernel_step.dependOn(&install_ptx.step);
+}
+
+/// Create a Run step for GPU test binaries that bypasses Zig's `--listen=-`
+/// IPC protocol. CUDA's dynamically-linked driver library conflicts with the
+/// test runner's binary stdout protocol, causing spurious failures.
+///
+/// This mimics `addRunArtifact` but skips `enableTestRunnerMode()`, so no
+/// `--listen=-` argument is passed. The test binary runs normally and reports
+/// results via exit code only (0 = pass, non-zero = fail).
+fn addGpuTestRun(b: *std.Build, exe: *Step.Compile) *Step.Run {
+    const run_step = Step.Run.create(b, b.fmt("run {s}", .{@tagName(exe.kind)}));
+    run_step.producer = exe;
+    run_step.addArtifactArg(exe);
+    run_step.expectExitCode(0);
+    return run_step;
 }

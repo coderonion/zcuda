@@ -23,11 +23,11 @@ test "sparse build → SpMV → verify pipeline" {
     const col_idx = [_]i32{ 0, 1, 0, 1, 2, 1, 2 };
     const vals = [_]f32{ 2, -1, -1, 2, -1, -1, 2 };
 
-    const d_rp = try stream.cloneHtod(i32, &row_ptr);
+    const d_rp = try stream.cloneHtoD(i32, &row_ptr);
     defer d_rp.deinit();
-    const d_ci = try stream.cloneHtod(i32, &col_idx);
+    const d_ci = try stream.cloneHtoD(i32, &col_idx);
     defer d_ci.deinit();
-    const d_vs = try stream.cloneHtod(f32, &vals);
+    const d_vs = try stream.cloneHtoD(f32, &vals);
     defer d_vs.deinit();
 
     const mat = try sp.createCsr(3, 3, 7, d_rp, d_ci, d_vs);
@@ -35,7 +35,7 @@ test "sparse build → SpMV → verify pipeline" {
 
     // x = [1, 2, 3]
     const x_h = [_]f32{ 1.0, 2.0, 3.0 };
-    const d_x = try stream.cloneHtod(f32, &x_h);
+    const d_x = try stream.cloneHtoD(f32, &x_h);
     defer d_x.deinit();
     const vec_x = try sp.createDnVec(d_x);
     defer sp.destroyDnVec(vec_x);
@@ -54,7 +54,7 @@ test "sparse build → SpMV → verify pipeline" {
     try ctx.synchronize();
 
     var res: [3]f32 = undefined;
-    try stream.memcpyDtoh(f32, &res, d_y);
+    try stream.memcpyDtoH(f32, &res, d_y);
 
     // A*x: [2*1-1*2, -1*1+2*2-1*3, -1*2+2*3] = [0, 0, 4]
     try std.testing.expectApproxEqAbs(@as(f32, 0.0), res[0], 1e-5);

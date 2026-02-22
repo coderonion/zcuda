@@ -71,9 +71,9 @@ test "cuBLAS LT matmul execution — D = A*B" {
     // 2x2 A = [[1,3],[2,4]] (col-major), B = [[5,7],[6,8]]
     const a_h = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
     const b_h = [_]f32{ 5.0, 6.0, 7.0, 8.0 };
-    const d_a = try stream.cloneHtod(f32, &a_h);
+    const d_a = try stream.cloneHtoD(f32, &a_h);
     defer d_a.deinit();
-    const d_b = try stream.cloneHtod(f32, &b_h);
+    const d_b = try stream.cloneHtoD(f32, &b_h);
     defer d_b.deinit();
     var d_c = try stream.allocZeros(f32, allocator, 4);
     defer d_c.deinit();
@@ -98,7 +98,7 @@ test "cuBLAS LT matmul execution — D = A*B" {
     try ctx.synchronize();
 
     var res: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &res, d_d);
+    try stream.memcpyDtoH(f32, &res, d_d);
     // A*B = [[1*5+3*6, 1*7+3*8],[2*5+4*6, 2*7+4*8]] = [[23,31],[34,46]] col-major: [23,34,31,46]
     try std.testing.expectApproxEqAbs(@as(f32, 23.0), res[0], 1e-3);
     try std.testing.expectApproxEqAbs(@as(f32, 34.0), res[1], 1e-3);

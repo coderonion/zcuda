@@ -1,21 +1,10 @@
 # zCUDA Documentation
 
-## Overview
-
-Comprehensive, safe, and idiomatic Zig bindings for the entire CUDA ecosystem.
-
-| Stat         | Value                     |
-| ------------ | ------------------------- |
-| Zig Version  | 0.16.0-dev.2535+b5bd49460 |
-| CUDA Toolkit | 12.8                      |
-| Modules      | 10                        |
-| Examples     | 50                        |
-
 ## Documentation Index
 
 ### API Reference
 
-- [**API Overview & Cross-Reference**](api.md) — Complete module listing with function signatures and CUDA mapping
+- [**API Overview & Cross-Reference**](API.md) — Complete module listing with function signatures and CUDA mapping
 
 ### Modules
 
@@ -31,8 +20,11 @@ Comprehensive, safe, and idiomatic Zig bindings for the entire CUDA ecosystem.
 | cusparse | [README](cusparse/README.md) | SpMV, SpMM, SpGEMM with CSR/COO formats                          |
 | cufft    | [README](cufft/README.md)    | 1D/2D/3D Fast Fourier Transform                                  |
 | nvtx     | [README](nvtx/README.md)     | Profiling annotations for NVIDIA Nsight                          |
+| **kernel**   | [**API**](kernel/API.md)     | **Kernel DSL — write CUDA kernels in pure Zig, compiled to PTX** |
 
 ### Guides
 
-- [Examples Guide](../examples/README.md) — 50 runnable examples with descriptions
+- [Kernel DSL API Reference](kernel/API.md) — intrinsics, shared memory, WMMA/MMA, TMA, cluster, tcgen05
+- [CUDA C++ → Zig Migration](kernel/MIGRATION.md) — port existing CUDA C++ kernels to pure Zig
+- [Examples Guide](../examples/README.md) — 162 examples: 58 host (10 categories with per-category READMEs) + 80 kernel (11 categories) + 24 integration
 - [Project README](../README.md) — Quick start, build options, and project overview

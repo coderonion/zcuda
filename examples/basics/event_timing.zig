@@ -64,7 +64,7 @@ pub fn main() !void {
     // --- Benchmark 1: Host→Device bandwidth ---
     std.debug.print("─── Host → Device Copy ───\n", .{});
     try start.record(stream);
-    const d_data = try stream.cloneHtod(f32, &h_data);
+    const d_data = try stream.cloneHtoD(f32, &h_data);
     defer d_data.deinit();
     try stop.record(stream);
     try stop.synchronize();
@@ -102,7 +102,7 @@ pub fn main() !void {
     var h_result: [1024 * 1024]f32 = undefined;
 
     try start.record(stream);
-    try stream.memcpyDtoh(f32, &h_result, d_data);
+    try stream.memcpyDtoH(f32, &h_result, d_data);
     try stop.record(stream);
     try stop.synchronize();
 

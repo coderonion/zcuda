@@ -29,18 +29,18 @@ pub fn main() !void {
     const a_val_h = [_]f32{ 1, 2, 3, 4 };
 
     // B = A (multiply A by itself)
-    const d_a_row = try stream.cloneHtod(i32, &a_row_h);
+    const d_a_row = try stream.cloneHtoD(i32, &a_row_h);
     defer d_a_row.deinit();
-    const d_a_col = try stream.cloneHtod(i32, &a_col_h);
+    const d_a_col = try stream.cloneHtoD(i32, &a_col_h);
     defer d_a_col.deinit();
-    const d_a_val = try stream.cloneHtod(f32, &a_val_h);
+    const d_a_val = try stream.cloneHtoD(f32, &a_val_h);
     defer d_a_val.deinit();
 
-    const d_b_row = try stream.cloneHtod(i32, &a_row_h);
+    const d_b_row = try stream.cloneHtoD(i32, &a_row_h);
     defer d_b_row.deinit();
-    const d_b_col = try stream.cloneHtod(i32, &a_col_h);
+    const d_b_col = try stream.cloneHtoD(i32, &a_col_h);
     defer d_b_col.deinit();
-    const d_b_val = try stream.cloneHtod(f32, &a_val_h);
+    const d_b_val = try stream.cloneHtoD(f32, &a_val_h);
     defer d_b_val.deinit();
 
     const mat_a = try sp.createCsr(a_rows, a_cols, a_nnz, d_a_row, d_a_col, d_a_val);

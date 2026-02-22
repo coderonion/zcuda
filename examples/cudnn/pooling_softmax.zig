@@ -32,7 +32,7 @@ pub fn main() !void {
     }
     std.debug.print("\n", .{});
 
-    const d_input = try stream.cloneHtod(f32, &h_input);
+    const d_input = try stream.cloneHtoD(f32, &h_input);
     defer d_input.deinit();
 
     const x_desc = try dnn.createTensor4d(.nchw, .float, 1, 1, 4, 4);
@@ -52,7 +52,7 @@ pub fn main() !void {
     try ctx.synchronize();
 
     var h_pool: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_pool, d_pool);
+    try stream.memcpyDtoH(f32, &h_pool, d_pool);
 
     std.debug.print("After 2x2 max pool (1x1x2x2):\n  [", .{});
     for (&h_pool) |v| std.debug.print(" {d:.0}", .{v});
@@ -76,7 +76,7 @@ pub fn main() !void {
     try ctx.synchronize();
 
     var h_softmax: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_softmax, d_softmax);
+    try stream.memcpyDtoH(f32, &h_softmax, d_softmax);
 
     std.debug.print("After softmax:\n  [", .{});
     for (&h_softmax) |v| std.debug.print(" {d:.4}", .{v});

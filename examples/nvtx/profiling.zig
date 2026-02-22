@@ -65,7 +65,7 @@ pub fn main() !void {
         // --- Mark important events ---
         cuda.nvtx.mark("HtoD Transfer Start");
 
-        const d_data = try stream.cloneHtod(f32, &h_data);
+        const d_data = try stream.cloneHtoD(f32, &h_data);
         defer d_data.deinit();
 
         cuda.nvtx.mark("HtoD Transfer End");
@@ -93,7 +93,7 @@ pub fn main() !void {
 
         // --- DtoH transfer ---
         cuda.nvtx.rangePush("DtoH Transfer");
-        try stream.memcpyDtoh(f32, &h_data, d_data);
+        try stream.memcpyDtoH(f32, &h_data, d_data);
         cuda.nvtx.rangePop();
 
         std.debug.print("✓ Results transferred back\n", .{});

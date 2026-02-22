@@ -73,8 +73,8 @@ pub fn main() !void {
 
         var h_result1: [256 * 1024]f32 = undefined;
         var h_result2: [256 * 1024]f32 = undefined;
-        try default_stream.memcpyDtoh(f32, &h_result1, d1);
-        try default_stream.memcpyDtoh(f32, &h_result2, d2);
+        try default_stream.memcpyDtoH(f32, &h_result1, d1);
+        try default_stream.memcpyDtoH(f32, &h_result2, d2);
 
         std.debug.print("  Chunk 1: d[0]={d:.6}, d[last]={d:.6}\n", .{ h_result1[0], h_result1[n - 1] });
         std.debug.print("  Chunk 2: d[0]={d:.6}, d[last]={d:.6}\n", .{ h_result2[0], h_result2[n - 1] });
@@ -112,8 +112,8 @@ pub fn main() !void {
 
         var h_result1: [256 * 1024]f32 = undefined;
         var h_result2: [256 * 1024]f32 = undefined;
-        try default_stream.memcpyDtoh(f32, &h_result1, d1);
-        try default_stream.memcpyDtoh(f32, &h_result2, d2);
+        try default_stream.memcpyDtoH(f32, &h_result1, d1);
+        try default_stream.memcpyDtoH(f32, &h_result2, d2);
 
         std.debug.print("  Chunk 1: d[0]={d:.6}, d[last]={d:.6}\n", .{ h_result1[0], h_result1[n - 1] });
         std.debug.print("  Chunk 2: d[0]={d:.6}, d[last]={d:.6}\n", .{ h_result2[0], h_result2[n - 1] });

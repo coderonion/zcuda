@@ -29,9 +29,9 @@ pub fn main() !void {
     // C initialized to zeros
     var C_data = [_]f32{ 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    const d_A = try stream.cloneHtod(f32, &A_data);
+    const d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    const d_C = try stream.cloneHtod(f32, &C_data);
+    const d_C = try stream.cloneHtoD(f32, &C_data);
     defer d_C.deinit();
 
     // C = 1.0 * A * A^T + 0.0 * C
@@ -40,7 +40,7 @@ pub fn main() !void {
     //         | 3*1+6*4  3*2+6*5  3*3+6*6 |   | 27  36  45 |
     try blas.ssyrk(.lower, .no_transpose, n, k, 1.0, d_A, n, 0.0, d_C, n);
 
-    try stream.memcpyDtoh(f32, &C_data, d_C);
+    try stream.memcpyDtoH(f32, &C_data, d_C);
 
     std.debug.print("A (3×2):\n", .{});
     for (0..3) |r| {

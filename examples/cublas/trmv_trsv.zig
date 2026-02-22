@@ -29,18 +29,18 @@ pub fn main() !void {
     const L_data = [_]f32{ 2, 1, 4, 0, 3, 2, 0, 0, 5 };
     const x_orig = [_]f32{ 1, 2, 3 };
 
-    const d_L = try stream.cloneHtod(f32, &L_data);
+    const d_L = try stream.cloneHtoD(f32, &L_data);
     defer d_L.deinit();
 
     // --- TRMV: y = L * x ---
     std.debug.print("─── TRMV: x = L·x ───\n", .{});
     var x_data = x_orig;
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
 
     try blas.strmv(.lower, .no_transpose, .non_unit, n, d_L, n, d_x, 1);
 
-    try stream.memcpyDtoh(f32, &x_data, d_x);
+    try stream.memcpyDtoH(f32, &x_data, d_x);
 
     std.debug.print("L:\n", .{});
     for (0..3) |r| {
@@ -63,11 +63,11 @@ pub fn main() !void {
     var b_data = exp_trmv;
     var d_b = try stream.alloc(f32, allocator, 3);
     defer d_b.deinit();
-    try stream.memcpyHtod(f32, d_b, &b_data);
+    try stream.memcpyHtoD(f32, d_b, &b_data);
 
     try blas.strsv(.lower, .no_transpose, .non_unit, n, d_L, n, d_b, 1);
 
-    try stream.memcpyDtoh(f32, &b_data, d_b);
+    try stream.memcpyDtoH(f32, &b_data, d_b);
 
     std.debug.print("b = [{d:.0}, {d:.0}, {d:.0}]\n", .{ exp_trmv[0], exp_trmv[1], exp_trmv[2] });
     std.debug.print("x = L⁻¹·b = [{d:.4}, {d:.4}, {d:.4}]\n", .{ b_data[0], b_data[1], b_data[2] });

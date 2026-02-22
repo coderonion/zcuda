@@ -32,7 +32,7 @@ pub fn main() !void {
     }
     std.debug.print("\n", .{});
 
-    var d_A = try stream.cloneHtod(f32, &A_data);
+    var d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
     var d_tau = try stream.allocZeros(f32, allocator, @intCast(n));
     defer d_tau.deinit();
@@ -42,17 +42,22 @@ pub fn main() !void {
     const d_ws = try stream.alloc(f32, allocator, @intCast(buf_size));
     defer d_ws.deinit();
 
-    var info: i32 = -1;
-    try sol.sgeqrf(m, n, d_A, m, d_tau, d_ws, buf_size, &info);
-    try ctx.synchronize();
+    // cuSOLVER requires devInfo to be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = 0;
 
-    if (info != 0) {
-        std.debug.print("QR factorization failed: info = {}\n", .{info});
+    try sol.sgeqrf(m, n, d_A, m, d_tau, d_ws, buf_size, d_info);
+    try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+
+    if (h_info != 0) {
+        std.debug.print("QR factorization failed: info = {}\n", .{h_info});
         return error.FactorizationFailed;
     }
 
     // R is upper triangle of d_A
-    try stream.memcpyDtoh(f32, &A_data, d_A);
+    try stream.memcpyDtoH(f32, &A_data, d_A);
 
     std.debug.print("R (upper triangle):\n", .{});
     for (0..3) |r| {
@@ -73,15 +78,16 @@ pub fn main() !void {
     const d_qr_ws = try stream.alloc(f32, allocator, @intCast(qr_buf));
     defer d_qr_ws.deinit();
 
-    try ext.sorgqr(m, n, n, d_A, m, d_tau, d_qr_ws, qr_buf, &info);
+    try ext.sorgqr(m, n, n, d_A, m, d_tau, d_qr_ws, qr_buf, d_info);
     try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
 
-    if (info != 0) {
-        std.debug.print("Q extraction failed: info = {}\n", .{info});
+    if (h_info != 0) {
+        std.debug.print("Q extraction failed: info = {}\n", .{h_info});
         return error.ExtractionFailed;
     }
 
-    try stream.memcpyDtoh(f32, &A_data, d_A);
+    try stream.memcpyDtoH(f32, &A_data, d_A);
     std.debug.print("Q (orthonormal columns):\n", .{});
     for (0..3) |r| {
         std.debug.print("  [", .{});

@@ -26,9 +26,9 @@ pub fn main() !void {
     const A_data = [_]f32{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     const x_data = [_]f32{ 10, 20, 30 };
 
-    const d_A = try stream.cloneHtod(f32, &A_data);
+    const d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
     const d_C = try stream.alloc(f32, allocator, 9);
     defer d_C.deinit();
@@ -42,7 +42,7 @@ pub fn main() !void {
     try blas.sdgmm(.right, m, n, d_A, m, d_x, d_C, m);
 
     var C: [9]f32 = undefined;
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     std.debug.print("A:\n", .{});
     for (0..3) |r| {
@@ -72,7 +72,7 @@ pub fn main() !void {
     // Each row i of A is scaled by x[i]
     std.debug.print("\n─── C = diag(x) · A  (left) ───\n", .{});
     try blas.sdgmm(.left, m, n, d_A, m, d_x, d_C, m);
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     std.debug.print("C = diag(x) · A:\n", .{});
     for (0..3) |r| {

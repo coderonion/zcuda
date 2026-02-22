@@ -2,6 +2,7 @@
 ///
 /// Computes SVD of a matrix, then reconstructs it from U, S, V^T
 /// to verify the factorization is correct.
+/// devInfo must be a GPU-side pointer per cuSOLVER API contract.
 const std = @import("std");
 const cuda = @import("zcuda");
 const driver = cuda.driver;
@@ -21,7 +22,7 @@ test "SVD reconstruction pipeline" {
     const n: i32 = 2;
     const original = [_]f32{ 1, 2, 3, 4, 5, 6 };
 
-    var d_A = try stream.cloneHtod(f32, &original);
+    var d_A = try stream.cloneHtoD(f32, &original);
     defer d_A.deinit();
     var d_S = try stream.allocZeros(f32, allocator, @intCast(n));
     defer d_S.deinit();
@@ -34,18 +35,23 @@ test "SVD reconstruction pipeline" {
     const d_work = try stream.alloc(f32, allocator, @intCast(lwork));
     defer d_work.deinit();
 
-    var info: i32 = -1;
-    try sol.sgesvd('A', 'A', m, n, d_A, m, d_S, d_U, m, d_VT, n, d_work, lwork, &info);
-    try ctx.synchronize();
+    // cuSOLVER devInfo must be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = -1;
 
-    try std.testing.expectEqual(@as(i32, 0), info);
+    try sol.sgesvd('A', 'A', m, n, d_A, m, d_S, d_U, m, d_VT, n, d_work, lwork, d_info);
+    try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+
+    try std.testing.expectEqual(@as(i32, 0), h_info);
 
     var h_S: [2]f32 = undefined;
     var h_U: [9]f32 = undefined;
     var h_VT: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_S, d_S);
-    try stream.memcpyDtoh(f32, &h_U, d_U);
-    try stream.memcpyDtoh(f32, &h_VT, d_VT);
+    try stream.memcpyDtoH(f32, &h_S, d_S);
+    try stream.memcpyDtoH(f32, &h_U, d_U);
+    try stream.memcpyDtoH(f32, &h_VT, d_VT);
 
     // Reconstruct: A_approx[r][c] = sum_k U[r][k] * S[k] * VT[k][c]  for k=0..n-1
     // col-major: U[r][k] = h_U[k*m+r], VT[k][c] = h_VT[c*n+k]

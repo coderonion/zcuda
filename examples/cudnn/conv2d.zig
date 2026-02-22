@@ -50,9 +50,9 @@ pub fn main() !void {
 
     std.debug.print("Filter (3x3 edge detect):\n  [-1 -1 -1]\n  [-1  8 -1]\n  [-1 -1 -1]\n\n", .{});
 
-    const d_input = try stream.cloneHtod(f32, &h_input);
+    const d_input = try stream.cloneHtoD(f32, &h_input);
     defer d_input.deinit();
-    const d_filter = try stream.cloneHtod(f32, &h_filter);
+    const d_filter = try stream.cloneHtoD(f32, &h_filter);
     defer d_filter.deinit();
 
     const x_desc = try dnn.createTensor4d(.nchw, .float, in_n, in_c, in_h, in_w);
@@ -84,7 +84,7 @@ pub fn main() !void {
     try ctx.synchronize();
 
     var h_output: [25]f32 = undefined;
-    try stream.memcpyDtoh(f32, h_output[0..out_size], d_output);
+    try stream.memcpyDtoH(f32, h_output[0..out_size], d_output);
 
     std.debug.print("Output (after 3x3 edge-detect conv):\n", .{});
     const oh: usize = @intCast(out_dim.h);

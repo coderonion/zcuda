@@ -80,7 +80,7 @@ test "cuDNN activation forward — ReLU" {
 
     // Input: [-1, 2, -3, 4]  Expected ReLU: [0, 2, 0, 4]
     const input_data = [_]f32{ -1.0, 2.0, -3.0, 4.0 };
-    const d_input = try stream.cloneHtod(f32, &input_data);
+    const d_input = try stream.cloneHtoD(f32, &input_data);
     defer d_input.deinit();
 
     var d_output = try stream.allocZeros(f32, allocator, 4);
@@ -90,7 +90,7 @@ test "cuDNN activation forward — ReLU" {
     try ctx.synchronize();
 
     var result: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_output);
+    try stream.memcpyDtoH(f32, &result, d_output);
 
     try std.testing.expectApproxEqAbs(@as(f32, 0.0), result[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 2.0), result[1], 1e-5);
@@ -110,7 +110,7 @@ test "cuDNN softmax forward — probabilities sum to 1" {
     defer desc.deinit();
 
     const input_data = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
-    const d_input = try stream.cloneHtod(f32, &input_data);
+    const d_input = try stream.cloneHtoD(f32, &input_data);
     defer d_input.deinit();
 
     var d_output = try stream.allocZeros(f32, allocator, 4);
@@ -120,7 +120,7 @@ test "cuDNN softmax forward — probabilities sum to 1" {
     try ctx.synchronize();
 
     var result: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_output);
+    try stream.memcpyDtoH(f32, &result, d_output);
 
     var sum: f32 = 0.0;
     for (result) |val| {
@@ -176,12 +176,12 @@ test "cuDNN addTensor — bias addition" {
 
     // src = [1, 2, 3, 4], add to output
     const src_data = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
-    const d_src = try stream.cloneHtod(f32, &src_data);
+    const d_src = try stream.cloneHtoD(f32, &src_data);
     defer d_src.deinit();
 
     // dst starts at [10, 20, 30, 40]
     const dst_data = [_]f32{ 10.0, 20.0, 30.0, 40.0 };
-    var d_dst = try stream.cloneHtod(f32, &dst_data);
+    var d_dst = try stream.cloneHtoD(f32, &dst_data);
     defer d_dst.deinit();
 
     // dst = 1.0 * src + 1.0 * dst
@@ -189,7 +189,7 @@ test "cuDNN addTensor — bias addition" {
     try ctx.synchronize();
 
     var result_buf: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result_buf, d_dst);
+    try stream.memcpyDtoH(f32, &result_buf, d_dst);
     _ = allocator;
     try std.testing.expectApproxEqAbs(@as(f32, 11.0), result_buf[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 22.0), result_buf[1], 1e-5);
@@ -208,7 +208,7 @@ test "cuDNN scaleTensor — in-place scaling" {
     defer desc.deinit();
 
     const data = [_]f32{ 2.0, 4.0, 6.0, 8.0 };
-    var d_data = try stream.cloneHtod(f32, &data);
+    var d_data = try stream.cloneHtoD(f32, &data);
     defer d_data.deinit();
 
     // Scale by 0.5
@@ -216,7 +216,7 @@ test "cuDNN scaleTensor — in-place scaling" {
     try ctx.synchronize();
 
     var result_buf: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result_buf, d_data);
+    try stream.memcpyDtoH(f32, &result_buf, d_data);
     try std.testing.expectApproxEqAbs(@as(f32, 1.0), result_buf[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 2.0), result_buf[1], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 3.0), result_buf[2], 1e-5);
@@ -240,9 +240,9 @@ test "cuDNN opTensor — element-wise add" {
 
     const a_data = [_]f32{ 1, 2, 3, 4 };
     const b_data = [_]f32{ 10, 20, 30, 40 };
-    const d_a = try stream.cloneHtod(f32, &a_data);
+    const d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
-    const d_b = try stream.cloneHtod(f32, &b_data);
+    const d_b = try stream.cloneHtoD(f32, &b_data);
     defer d_b.deinit();
     var d_c = try stream.allocZeros(f32, allocator, 4);
     defer d_c.deinit();
@@ -251,7 +251,7 @@ test "cuDNN opTensor — element-wise add" {
     try ctx.synchronize();
 
     var result_buf: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result_buf, d_c);
+    try stream.memcpyDtoH(f32, &result_buf, d_c);
     try std.testing.expectApproxEqAbs(@as(f32, 11.0), result_buf[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 22.0), result_buf[1], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 33.0), result_buf[2], 1e-5);
@@ -273,7 +273,7 @@ test "cuDNN pooling forward — 2x2 max pool" {
         9, 3, 1, 0,
         2, 4, 5, 6,
     };
-    const d_in = try stream.cloneHtod(f32, &input);
+    const d_in = try stream.cloneHtoD(f32, &input);
     defer d_in.deinit();
     var d_out = try stream.allocZeros(f32, allocator, 4);
     defer d_out.deinit();
@@ -289,7 +289,7 @@ test "cuDNN pooling forward — 2x2 max pool" {
     try ctx.synchronize();
 
     var res: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &res, d_out);
+    try stream.memcpyDtoH(f32, &res, d_out);
     // max of 2x2 blocks: [6, 8, 9, 6]
     try std.testing.expectApproxEqAbs(@as(f32, 6.0), res[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 8.0), res[1], 1e-5);
@@ -311,7 +311,7 @@ test "cuDNN activation forward — sigmoid" {
     defer act.deinit();
 
     const input = [_]f32{ 0.0, 1.0, -1.0, 10.0 };
-    const d_in = try stream.cloneHtod(f32, &input);
+    const d_in = try stream.cloneHtoD(f32, &input);
     defer d_in.deinit();
     var d_out = try stream.allocZeros(f32, allocator, 4);
     defer d_out.deinit();
@@ -320,7 +320,7 @@ test "cuDNN activation forward — sigmoid" {
     try ctx.synchronize();
 
     var res: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &res, d_out);
+    try stream.memcpyDtoH(f32, &res, d_out);
     // sigmoid(0) = 0.5, sigmoid(1) ≈ 0.731, sigmoid(-1) ≈ 0.269, sigmoid(10) ≈ 1.0
     try std.testing.expectApproxEqAbs(@as(f32, 0.5), res[0], 1e-4);
     try std.testing.expect(res[1] > 0.7 and res[1] < 0.8);
@@ -342,7 +342,7 @@ test "cuDNN reduce tensor — sum" {
     defer y_desc.deinit();
 
     const input = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
-    const d_in = try stream.cloneHtod(f32, &input);
+    const d_in = try stream.cloneHtoD(f32, &input);
     defer d_in.deinit();
     var d_out = try stream.allocZeros(f32, allocator, 1);
     defer d_out.deinit();
@@ -358,7 +358,7 @@ test "cuDNN reduce tensor — sum" {
     try ctx.synchronize();
 
     var res: [1]f32 = undefined;
-    try stream.memcpyDtoh(f32, &res, d_out);
+    try stream.memcpyDtoH(f32, &res, d_out);
     try std.testing.expectApproxEqAbs(@as(f32, 10.0), res[0], 1e-4);
 }
 
@@ -375,9 +375,9 @@ test "cuDNN addTensor — C = alpha*A + beta*C" {
 
     const a_data = [_]f32{ 1, 2, 3, 4 };
     const c_data = [_]f32{ 10, 20, 30, 40 };
-    const d_a = try stream.cloneHtod(f32, &a_data);
+    const d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
-    var d_c = try stream.cloneHtod(f32, &c_data);
+    var d_c = try stream.cloneHtoD(f32, &c_data);
     defer d_c.deinit();
 
     // C = 2.0 * A + 1.0 * C => [12, 24, 36, 44]
@@ -385,7 +385,7 @@ test "cuDNN addTensor — C = alpha*A + beta*C" {
     try ctx.synchronize();
 
     var result_buf: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result_buf, d_c);
+    try stream.memcpyDtoH(f32, &result_buf, d_c);
     try std.testing.expectApproxEqAbs(@as(f32, 12.0), result_buf[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 24.0), result_buf[1], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 36.0), result_buf[2], 1e-5);
@@ -405,7 +405,7 @@ test "cuDNN scaleTensor — Y = alpha * Y" {
     defer desc.deinit();
 
     const data = [_]f32{ 2, 4, 6, 8 };
-    var d_y = try stream.cloneHtod(f32, &data);
+    var d_y = try stream.cloneHtoD(f32, &data);
     defer d_y.deinit();
 
     // Y = 3.0 * Y => [6, 12, 18, 24]
@@ -413,7 +413,7 @@ test "cuDNN scaleTensor — Y = alpha * Y" {
     try ctx.synchronize();
 
     var result_buf: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result_buf, d_y);
+    try stream.memcpyDtoH(f32, &result_buf, d_y);
     try std.testing.expectApproxEqAbs(@as(f32, 6.0), result_buf[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 12.0), result_buf[1], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 18.0), result_buf[2], 1e-5);

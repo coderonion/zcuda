@@ -20,13 +20,13 @@ test "conv2d → ReLU activation pipeline" {
         0,  1, 0,
         -1, 2, -1,
     };
-    const d_input = try stream.cloneHtod(f32, &h_input);
+    const d_input = try stream.cloneHtoD(f32, &h_input);
     defer d_input.deinit();
 
     // 1x1x3x3 averaging filter (each element = 1/9)
     var h_filter: [9]f32 = undefined;
     for (&h_filter) |*v| v.* = 1.0 / 9.0;
-    const d_filter = try stream.cloneHtod(f32, &h_filter);
+    const d_filter = try stream.cloneHtoD(f32, &h_filter);
     defer d_filter.deinit();
 
     const x_desc = try dnn.createTensor4d(.nchw, .float, 1, 1, 3, 3);
@@ -63,7 +63,7 @@ test "conv2d → ReLU activation pipeline" {
     try ctx.synchronize();
 
     var h_result: [9]f32 = undefined;
-    try stream.memcpyDtoh(f32, h_result[0..out_n], d_relu_out);
+    try stream.memcpyDtoH(f32, h_result[0..out_n], d_relu_out);
 
     // All values should be >= 0 after ReLU
     for (h_result[0..out_n]) |v| {

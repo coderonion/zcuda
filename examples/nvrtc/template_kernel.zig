@@ -53,7 +53,7 @@ pub fn main() !void {
     const n: usize = 8;
     const n_i32: i32 = @intCast(n);
     const input = [_]f32{ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0 };
-    const d_data = try stream.cloneHtod(f32, &input);
+    const d_data = try stream.cloneHtoD(f32, &input);
     defer d_data.deinit();
 
     std.debug.print("Input: [ ", .{});
@@ -68,7 +68,7 @@ pub fn main() !void {
     try stream.launch(scale_fn, config, .{ &d_data, @as(f32, 2.0), n_i32 });
 
     var h_result: [8]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_result, d_data);
+    try stream.memcpyDtoH(f32, &h_result, d_data);
     std.debug.print("  Result: [ ", .{});
     for (&h_result) |v| std.debug.print("{d:.1} ", .{v});
     std.debug.print("]\n\n", .{});
@@ -78,7 +78,7 @@ pub fn main() !void {
     const add_fn = try module.getFunction("add_kernel");
     try stream.launch(add_fn, config, .{ &d_data, @as(f32, 10.0), n_i32 });
 
-    try stream.memcpyDtoh(f32, &h_result, d_data);
+    try stream.memcpyDtoH(f32, &h_result, d_data);
     std.debug.print("  Result: [ ", .{});
     for (&h_result) |v| std.debug.print("{d:.1} ", .{v});
     std.debug.print("]\n\n", .{});
@@ -88,7 +88,7 @@ pub fn main() !void {
     const clamp_fn = try module.getFunction("clamp_kernel");
     try stream.launch(clamp_fn, config, .{ &d_data, @as(f32, 15.0), @as(f32, 22.0), n_i32 });
 
-    try stream.memcpyDtoh(f32, &h_result, d_data);
+    try stream.memcpyDtoH(f32, &h_result, d_data);
     std.debug.print("  Result: [ ", .{});
     for (&h_result) |v| std.debug.print("{d:.1} ", .{v});
     std.debug.print("]\n\n", .{});

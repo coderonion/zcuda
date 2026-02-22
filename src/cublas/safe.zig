@@ -230,10 +230,36 @@ pub const CublasContext = struct {
 
     // --- BLAS Level 3 ---
 
-    /// SGEMM: C = alpha * op(A) * op(B) + beta * C (float).
+    /// SGEMM: C = alpha * op(A) * op(B) + beta * C (single-precision float).
     ///
-    /// Performs general matrix-matrix multiplication.
-    /// Note: cuBLAS uses column-major order.
+    /// ## Column-major Warning
+    ///
+    /// cuBLAS uses **column-major** storage. Zig/C arrays are row-major.
+    /// Passing row-major buffers with the naive argument order produces the
+    /// **transpose** of the intended result.
+    ///
+    /// ## Row-major Usage (Recommended)
+    ///
+    /// To compute `C = A × B` where C is M×N, A is M×K, B is K×N
+    /// and all buffers are **row-major**, swap A↔B and M↔N:
+    ///
+    /// ```zig
+    /// // ❌ WRONG for row-major (produces Cᵀ):
+    /// try blas.sgemm(.no_transpose, .no_transpose, m, n, k,
+    ///     alpha, a, m, b, k, beta, c, m);
+    ///
+    /// // ✅ CORRECT for row-major (swap A↔B, swap m↔n):
+    /// try blas.sgemm(.no_transpose, .no_transpose, n, m, k,
+    ///     alpha, b, n, a, k, beta, c, n);
+    /// // Math: cuBLAS computes Cᵀ = Bᵀ × Aᵀ  ⟹  C = A × B (row-major)
+    ///
+    /// // For square matrices (m = n = k = s), just swap A and B:
+    /// try blas.sgemm(.no_transpose, .no_transpose, s, s, s,
+    ///     alpha, b, s, a, s, beta, c, s);
+    /// ```
+    ///
+    /// This trick has **zero runtime overhead** — no extra copies or transposes.
+    /// See `docs/cublas/README.md` § "Row-major vs Column-major" for full details.
     pub fn sgemm(
         self: Self,
         transa: Operation,

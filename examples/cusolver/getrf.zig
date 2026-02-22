@@ -1,6 +1,8 @@
 /// cuSOLVER LU Factorization + Solve Example
 ///
 /// Demonstrates PA = LU factorization followed by solving Ax = b.
+/// devInfo is allocated on GPU (cuSOLVER requirement) and copied back
+/// to host after synchronization.
 ///
 /// Reference: CUDALibrarySamples/cuSOLVER/getrf
 const std = @import("std");
@@ -28,10 +30,15 @@ pub fn main() !void {
     std.debug.print("A = | 1  2  3 |\n    | 4  5  6 |\n    | 7  8  0 |\n\n", .{});
     std.debug.print("b = [14, 32, 23]\n\n", .{});
 
-    var d_A = try stream.cloneHtod(f32, &A_data);
+    var d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    var d_b = try stream.cloneHtod(f32, &b_data);
+    var d_b = try stream.cloneHtoD(f32, &b_data);
     defer d_b.deinit();
+
+    // cuSOLVER requires devInfo to be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = 0;
 
     // LU factorization
     const buf_size = try sol.sgetrf_bufferSize(n, n, d_A, n);
@@ -40,21 +47,22 @@ pub fn main() !void {
     var d_ipiv = try stream.allocZeros(i32, allocator, @intCast(n));
     defer d_ipiv.deinit();
 
-    var info: i32 = -1;
-    try sol.sgetrf(n, n, d_A, n, d_ws, d_ipiv, &info);
+    try sol.sgetrf(n, n, d_A, n, d_ws, d_ipiv, d_info);
     try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
 
-    if (info != 0) {
-        std.debug.print("LU factorization failed: info = {}\n", .{info});
+    if (h_info != 0) {
+        std.debug.print("LU factorization failed: info = {}\n", .{h_info});
         return error.FactorizationFailed;
     }
-    std.debug.print("LU factorization: info = {} (success)\n", .{info});
+    std.debug.print("LU factorization: info = {} (success)\n", .{h_info});
 
     // Solve Ax = b
-    try sol.sgetrs(n, 1, d_A, n, d_ipiv, d_b, n, &info);
+    try sol.sgetrs(n, 1, d_A, n, d_ipiv, d_b, n, d_info);
     try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
 
-    try stream.memcpyDtoh(f32, &b_data, d_b);
+    try stream.memcpyDtoH(f32, &b_data, d_b);
     std.debug.print("Solution x = [{d:.4}, {d:.4}, {d:.4}]\n", .{ b_data[0], b_data[1], b_data[2] });
     std.debug.print("Expected    [1, 2, 3]\n\n", .{});
 

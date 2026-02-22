@@ -21,7 +21,7 @@ pub fn main() !void {
     const n: i32 = 5;
     const x_data = [_]f32{ 3.0, -4.0, 5.0, -12.0, 8.0 };
 
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
 
     std.debug.print("x = [ ", .{});

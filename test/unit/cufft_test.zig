@@ -33,7 +33,7 @@ test "cuFFT R2C forward transform" {
 
     // Input: DC signal (all 1.0)
     const input_data = [_]f32{ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
-    const d_input = try stream.cloneHtod(f32, &input_data);
+    const d_input = try stream.cloneHtoD(f32, &input_data);
     defer d_input.deinit();
 
     // Output: N/2+1 = 5 complex numbers = 10 floats
@@ -44,7 +44,7 @@ test "cuFFT R2C forward transform" {
     try ctx.synchronize();
 
     var result: [10]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_output);
+    try stream.memcpyDtoH(f32, &result, d_output);
 
     // For a DC signal of N=8 ones, FFT[0] should be (8.0, 0.0), all other bins should be (0,0).
     try std.testing.expectApproxEqAbs(@as(f32, 8.0), result[0], 1e-4); // real part of bin 0
@@ -102,7 +102,7 @@ test "cuFFT C2C forward+inverse roundtrip" {
         input[2 * k + 1] = 0.0;
     }
 
-    const d_in = try stream.cloneHtod(f32, &input);
+    const d_in = try stream.cloneHtoD(f32, &input);
     defer d_in.deinit();
     var d_out = try stream.allocZeros(f32, allocator, 16);
     defer d_out.deinit();
@@ -116,7 +116,7 @@ test "cuFFT C2C forward+inverse roundtrip" {
     try ctx.synchronize();
 
     var fft_result: [16]f32 = undefined;
-    try stream.memcpyDtoh(f32, &fft_result, d_out);
+    try stream.memcpyDtoH(f32, &fft_result, d_out);
 
     // DC signal: FFT[0] = (8, 0), all others = (0, 0)
     try std.testing.expectApproxEqAbs(@as(f32, 8.0), fft_result[0], 1e-4);
@@ -134,7 +134,7 @@ test "cuFFT C2C forward+inverse roundtrip" {
     try ctx.synchronize();
 
     var roundtrip: [16]f32 = undefined;
-    try stream.memcpyDtoh(f32, &roundtrip, d_in);
+    try stream.memcpyDtoH(f32, &roundtrip, d_in);
 
     // Normalize and verify
     for (0..n) |k| {

@@ -38,11 +38,11 @@ pub fn main() !void {
     // C initialized to zeros
     var h_C = [_]f32{ 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    const d_A = try stream.cloneHtod(f32, &h_A);
+    const d_A = try stream.cloneHtoD(f32, &h_A);
     defer d_A.deinit();
-    const d_B = try stream.cloneHtod(f32, &h_B);
+    const d_B = try stream.cloneHtoD(f32, &h_B);
     defer d_B.deinit();
-    var d_C = try stream.cloneHtod(f32, &h_C);
+    var d_C = try stream.cloneHtoD(f32, &h_C);
     defer d_C.deinit();
     var d_D = try stream.allocZeros(f32, allocator, @intCast(m * n));
     defer d_D.deinit();
@@ -79,7 +79,7 @@ pub fn main() !void {
     try ctx.synchronize();
 
     var h_D: [8]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_D, d_D);
+    try stream.memcpyDtoH(f32, &h_D, d_D);
 
     // Expected: A*B
     // Row 0: 1*1+5*2+9*3  = 38,   1*4+5*5+9*6  = 83

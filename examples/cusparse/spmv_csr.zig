@@ -33,20 +33,20 @@ pub fn main() !void {
     const h_col_indices = [_]i32{ 0, 2, 1, 0, 2, 3, 1, 3 };
     const h_values = [_]f32{ 1, 2, 3, 4, 5, 6, 7, 8 };
 
-    const d_row_offsets = try stream.cloneHtod(i32, &h_row_offsets);
+    const d_row_offsets = try stream.cloneHtoD(i32, &h_row_offsets);
     defer d_row_offsets.deinit();
-    const d_col_indices = try stream.cloneHtod(i32, &h_col_indices);
+    const d_col_indices = try stream.cloneHtoD(i32, &h_col_indices);
     defer d_col_indices.deinit();
-    const d_values = try stream.cloneHtod(f32, &h_values);
+    const d_values = try stream.cloneHtoD(f32, &h_values);
     defer d_values.deinit();
 
     // Dense vectors x and y
     const h_x = [_]f32{ 1, 2, 3, 4 };
     var h_y = [_]f32{ 0, 0, 0, 0 };
 
-    const d_x = try stream.cloneHtod(f32, &h_x);
+    const d_x = try stream.cloneHtoD(f32, &h_x);
     defer d_x.deinit();
-    var d_y = try stream.cloneHtod(f32, &h_y);
+    var d_y = try stream.cloneHtoD(f32, &h_y);
     defer d_y.deinit();
 
     std.debug.print("Sparse A (CSR, {} nnz):\n", .{nnz});
@@ -70,7 +70,7 @@ pub fn main() !void {
     try sp.spMV(.non_transpose, 1.0, mat_a, vec_x, 0.0, vec_y, workspace);
     try ctx.synchronize();
 
-    try stream.memcpyDtoh(f32, &h_y, d_y);
+    try stream.memcpyDtoH(f32, &h_y, d_y);
 
     std.debug.print("y = A * x = [{d:.1}, {d:.1}, {d:.1}, {d:.1}]\n", .{ h_y[0], h_y[1], h_y[2], h_y[3] });
 

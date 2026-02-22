@@ -1,5 +1,6 @@
 /// zCUDA Integration Test: LU Solve Pipeline
 /// Tests the cuSOLVER sgetrf → sgetrs pipeline to solve Ax=b.
+/// devInfo must be a GPU-side pointer per cuSOLVER API contract.
 const std = @import("std");
 const cuda = @import("zcuda");
 const driver = cuda.driver;
@@ -23,9 +24,9 @@ test "LU Solve: sgetrf → sgetrs → verify Ax=b" {
     const b_data = [_]f32{ 4, 7 };
 
     // Upload A and b to device
-    var d_a = try stream.cloneHtod(f32, &a_data);
+    var d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
-    var d_b = try stream.cloneHtod(f32, &b_data);
+    var d_b = try stream.cloneHtoD(f32, &b_data);
     defer d_b.deinit();
 
     // Step 1: LU factorize A
@@ -35,20 +36,25 @@ test "LU Solve: sgetrf → sgetrs → verify Ax=b" {
     var d_ipiv = try stream.allocZeros(i32, allocator, @intCast(n));
     defer d_ipiv.deinit();
 
-    var info: i32 = -1;
-    try sol.sgetrf(n, n, d_a, n, d_workspace, d_ipiv, &info);
+    // cuSOLVER devInfo must be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = -1;
+
+    try sol.sgetrf(n, n, d_a, n, d_workspace, d_ipiv, d_info);
     try ctx.synchronize();
-    try std.testing.expectEqual(@as(i32, 0), info);
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+    try std.testing.expectEqual(@as(i32, 0), h_info);
 
     // Step 2: Solve using LU factors
-    var info2: i32 = -1;
-    try sol.sgetrs(n, 1, d_a, n, d_ipiv, d_b, n, &info2);
+    try sol.sgetrs(n, 1, d_a, n, d_ipiv, d_b, n, d_info);
     try ctx.synchronize();
-    try std.testing.expectEqual(@as(i32, 0), info2);
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+    try std.testing.expectEqual(@as(i32, 0), h_info);
 
     // Step 3: Verify solution
     var result: [2]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_b);
+    try stream.memcpyDtoH(f32, &result, d_b);
     try std.testing.expectApproxEqAbs(@as(f32, 5.0), result[0], 1e-4);
     try std.testing.expectApproxEqAbs(@as(f32, -6.0), result[1], 1e-4);
 }

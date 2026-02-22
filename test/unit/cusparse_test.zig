@@ -27,11 +27,11 @@ test "cuSPARSE CSR creation" {
     const col_idxs_h = [_]i32{ 0, 1, 2 };
     const vals_h = [_]f32{ 1.0, 1.0, 1.0 };
 
-    const d_row_ptrs = try stream.cloneHtod(i32, &row_ptrs_h);
+    const d_row_ptrs = try stream.cloneHtoD(i32, &row_ptrs_h);
     defer d_row_ptrs.deinit();
-    const d_col_idxs = try stream.cloneHtod(i32, &col_idxs_h);
+    const d_col_idxs = try stream.cloneHtoD(i32, &col_idxs_h);
     defer d_col_idxs.deinit();
-    const d_vals = try stream.cloneHtod(f32, &vals_h);
+    const d_vals = try stream.cloneHtoD(f32, &vals_h);
     defer d_vals.deinit();
 
     const mat = try sp.createCsr(3, 3, 3, d_row_ptrs, d_col_idxs, d_vals);
@@ -51,11 +51,11 @@ test "cuSPARSE SpMV — y = A*x (identity)" {
     const col_idxs_h = [_]i32{ 0, 1, 2 };
     const vals_h = [_]f32{ 1.0, 1.0, 1.0 };
 
-    const d_row_ptrs = try stream.cloneHtod(i32, &row_ptrs_h);
+    const d_row_ptrs = try stream.cloneHtoD(i32, &row_ptrs_h);
     defer d_row_ptrs.deinit();
-    const d_col_idxs = try stream.cloneHtod(i32, &col_idxs_h);
+    const d_col_idxs = try stream.cloneHtoD(i32, &col_idxs_h);
     defer d_col_idxs.deinit();
-    const d_vals = try stream.cloneHtod(f32, &vals_h);
+    const d_vals = try stream.cloneHtoD(f32, &vals_h);
     defer d_vals.deinit();
 
     const mat = try sp.createCsr(3, 3, 3, d_row_ptrs, d_col_idxs, d_vals);
@@ -63,7 +63,7 @@ test "cuSPARSE SpMV — y = A*x (identity)" {
 
     // x = [1, 2, 3]
     const x_h = [_]f32{ 1.0, 2.0, 3.0 };
-    const d_x = try stream.cloneHtod(f32, &x_h);
+    const d_x = try stream.cloneHtoD(f32, &x_h);
     defer d_x.deinit();
     const vec_x = try sp.createDnVec(d_x);
     defer sp.destroyDnVec(vec_x);
@@ -88,7 +88,7 @@ test "cuSPARSE SpMV — y = A*x (identity)" {
     try ctx.synchronize();
 
     var result: [3]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_y);
+    try stream.memcpyDtoH(f32, &result, d_y);
 
     try std.testing.expectApproxEqAbs(@as(f32, 1.0), result[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 2.0), result[1], 1e-5);
@@ -117,11 +117,11 @@ test "cuSPARSE COO creation" {
     const col_idxs_h = [_]i32{ 0, 1, 2 };
     const vals_h = [_]f32{ 1.0, 1.0, 1.0 };
 
-    const d_row = try stream.cloneHtod(i32, &row_idxs_h);
+    const d_row = try stream.cloneHtoD(i32, &row_idxs_h);
     defer d_row.deinit();
-    const d_col = try stream.cloneHtod(i32, &col_idxs_h);
+    const d_col = try stream.cloneHtoD(i32, &col_idxs_h);
     defer d_col.deinit();
-    const d_vals = try stream.cloneHtod(f32, &vals_h);
+    const d_vals = try stream.cloneHtoD(f32, &vals_h);
     defer d_vals.deinit();
 
     const mat = try sp.createCoo(3, 3, 3, d_row, d_col, d_vals);
@@ -140,18 +140,18 @@ test "cuSPARSE SpMM — C = A*B (CSR × dense)" {
     const row_h = [_]i32{ 0, 1, 2 };
     const col_h = [_]i32{ 0, 1 };
     const val_h = [_]f32{ 2.0, 3.0 };
-    const d_row = try stream.cloneHtod(i32, &row_h);
+    const d_row = try stream.cloneHtoD(i32, &row_h);
     defer d_row.deinit();
-    const d_col = try stream.cloneHtod(i32, &col_h);
+    const d_col = try stream.cloneHtoD(i32, &col_h);
     defer d_col.deinit();
-    const d_val = try stream.cloneHtod(f32, &val_h);
+    const d_val = try stream.cloneHtoD(f32, &val_h);
     defer d_val.deinit();
     const mat_a = try sp.createCsr(2, 2, 2, d_row, d_col, d_val);
     defer sp.destroySpMat(mat_a);
 
     // Dense B (2x2 col-major): [[1,3],[2,4]]
     const b_h = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
-    const d_b = try stream.cloneHtod(f32, &b_h);
+    const d_b = try stream.cloneHtoD(f32, &b_h);
     defer d_b.deinit();
     const mat_b = try sp.createDnMat(2, 2, 2, d_b);
     defer sp.destroyDnMat(mat_b);
@@ -171,7 +171,7 @@ test "cuSPARSE SpMM — C = A*B (CSR × dense)" {
     try ctx.synchronize();
 
     var res: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &res, d_c);
+    try stream.memcpyDtoH(f32, &res, d_c);
     // diag(2,3) * [[1,3],[2,4]] = [[2,6],[6,12]]
     try std.testing.expectApproxEqAbs(@as(f32, 2.0), res[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 6.0), res[1], 1e-5);
@@ -191,17 +191,17 @@ test "cuSPARSE COO SpMV" {
     const ri = [_]i32{ 0, 1 };
     const ci = [_]i32{ 0, 1 };
     const vs = [_]f32{ 1.0, 2.0 };
-    const d_ri = try stream.cloneHtod(i32, &ri);
+    const d_ri = try stream.cloneHtoD(i32, &ri);
     defer d_ri.deinit();
-    const d_ci = try stream.cloneHtod(i32, &ci);
+    const d_ci = try stream.cloneHtoD(i32, &ci);
     defer d_ci.deinit();
-    const d_vs = try stream.cloneHtod(f32, &vs);
+    const d_vs = try stream.cloneHtoD(f32, &vs);
     defer d_vs.deinit();
     const mat = try sp.createCoo(2, 2, 2, d_ri, d_ci, d_vs);
     defer sp.destroySpMat(mat);
 
     const x_h = [_]f32{ 3.0, 5.0 };
-    const d_x = try stream.cloneHtod(f32, &x_h);
+    const d_x = try stream.cloneHtoD(f32, &x_h);
     defer d_x.deinit();
     const vec_x = try sp.createDnVec(d_x);
     defer sp.destroyDnVec(vec_x);
@@ -220,7 +220,7 @@ test "cuSPARSE COO SpMV" {
     try ctx.synchronize();
 
     var res: [2]f32 = undefined;
-    try stream.memcpyDtoh(f32, &res, d_y);
+    try stream.memcpyDtoH(f32, &res, d_y);
     try std.testing.expectApproxEqAbs(@as(f32, 3.0), res[0], 1e-5);
     try std.testing.expectApproxEqAbs(@as(f32, 10.0), res[1], 1e-5);
 }

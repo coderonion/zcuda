@@ -34,9 +34,9 @@ pub fn main() !void {
     }
     std.debug.print("b = [7, 10, 10]\n\n", .{});
 
-    var d_A = try stream.cloneHtod(f32, &A_data);
+    var d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    var d_b = try stream.cloneHtod(f32, &b_data);
+    var d_b = try stream.cloneHtoD(f32, &b_data);
     defer d_b.deinit();
 
     // Cholesky factorization: A = L * L^T
@@ -44,17 +44,22 @@ pub fn main() !void {
     const d_ws = try stream.alloc(f32, allocator, @intCast(buf_size));
     defer d_ws.deinit();
 
-    var info: i32 = -1;
-    try ext.spotrf(.lower, n, d_A, n, d_ws, buf_size, &info);
-    try ctx.synchronize();
+    // cuSOLVER requires devInfo to be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = 0;
 
-    if (info != 0) {
-        std.debug.print("Cholesky factorization failed: info = {}\n", .{info});
+    try ext.spotrf(.lower, n, d_A, n, d_ws, buf_size, d_info);
+    try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+
+    if (h_info != 0) {
+        std.debug.print("Cholesky factorization failed: info = {}\n", .{h_info});
         return error.FactorizationFailed;
     }
-    std.debug.print("Cholesky factorization: info = {} (success)\n", .{info});
+    std.debug.print("Cholesky factorization: info = {} (success)\n", .{h_info});
 
-    try stream.memcpyDtoh(f32, &A_data, d_A);
+    try stream.memcpyDtoH(f32, &A_data, d_A);
     std.debug.print("L (lower Cholesky factor):\n", .{});
     for (0..3) |r| {
         std.debug.print("  [", .{});
@@ -70,10 +75,10 @@ pub fn main() !void {
     std.debug.print("\n", .{});
 
     // Solve A*x = b using Cholesky factors
-    try ext.spotrs(.lower, n, 1, d_A, n, d_b, n, &info);
+    try ext.spotrs(.lower, n, 1, d_A, n, d_b, n, d_info);
     try ctx.synchronize();
 
-    try stream.memcpyDtoh(f32, &b_data, d_b);
+    try stream.memcpyDtoH(f32, &b_data, d_b);
     std.debug.print("Solution x = [{d:.4}, {d:.4}, {d:.4}]\n", .{ b_data[0], b_data[1], b_data[2] });
     std.debug.print("Expected    [1, 1, 1]\n\n", .{});
 

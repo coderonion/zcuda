@@ -29,19 +29,19 @@ pub fn main() !void {
     const h_col_ind = [_]i32{ 0, 1, 0, 2 };
     const h_values = [_]f32{ 2, 3, 1, 4 };
 
-    const d_row_ind = try stream.cloneHtod(i32, &h_row_ind);
+    const d_row_ind = try stream.cloneHtoD(i32, &h_row_ind);
     defer d_row_ind.deinit();
-    const d_col_ind = try stream.cloneHtod(i32, &h_col_ind);
+    const d_col_ind = try stream.cloneHtoD(i32, &h_col_ind);
     defer d_col_ind.deinit();
-    const d_values = try stream.cloneHtod(f32, &h_values);
+    const d_values = try stream.cloneHtoD(f32, &h_values);
     defer d_values.deinit();
 
     const h_x = [_]f32{ 1, 2, 3 };
     var h_y = [_]f32{ 0, 0, 0 };
 
-    const d_x = try stream.cloneHtod(f32, &h_x);
+    const d_x = try stream.cloneHtoD(f32, &h_x);
     defer d_x.deinit();
-    var d_y = try stream.cloneHtod(f32, &h_y);
+    var d_y = try stream.cloneHtoD(f32, &h_y);
     defer d_y.deinit();
 
     std.debug.print("A (COO, {} nnz):\n  | 2  0  0 |\n  | 0  3  0 |\n  | 1  0  4 |\n\n", .{nnz});
@@ -61,7 +61,7 @@ pub fn main() !void {
     try sp.spMV(.non_transpose, 1.0, mat_a, vec_x, 0.0, vec_y, workspace);
     try ctx.synchronize();
 
-    try stream.memcpyDtoh(f32, &h_y, d_y);
+    try stream.memcpyDtoH(f32, &h_y, d_y);
     std.debug.print("y = A * x = [{d:.1}, {d:.1}, {d:.1}]\n", .{ h_y[0], h_y[1], h_y[2] });
 
     // Expected: [2*1, 3*2, 1*1+4*3] = [2, 6, 13]

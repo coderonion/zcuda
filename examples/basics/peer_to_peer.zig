@@ -31,11 +31,11 @@ pub fn main() !void {
 
         // Demonstrate basic alloc/copy on single GPU
         const h_data = [_]f32{ 1.0, 2.0, 3.0, 4.0, 5.0 };
-        const d_data = try stream.cloneHtod(f32, &h_data);
+        const d_data = try stream.cloneHtoD(f32, &h_data);
         defer d_data.deinit();
 
         var h_result: [5]f32 = undefined;
-        try stream.memcpyDtoh(f32, &h_result, d_data);
+        try stream.memcpyDtoH(f32, &h_result, d_data);
 
         std.debug.print("  Data roundtrip: ", .{});
         for (&h_result) |v| std.debug.print("{d:.1} ", .{v});
@@ -72,7 +72,7 @@ pub fn main() !void {
         v.* = @as(f32, @floatFromInt(i));
     }
 
-    const d0_data = try stream0.cloneHtod(f32, &h_data);
+    const d0_data = try stream0.cloneHtoD(f32, &h_data);
     defer d0_data.deinit();
     std.debug.print("\n  GPU 0: allocated {} elements\n", .{n});
 
@@ -83,7 +83,7 @@ pub fn main() !void {
 
     // Copy back from GPU 0 and verify
     var h_result0: [1024]f32 = undefined;
-    try stream0.memcpyDtoh(f32, &h_result0, d0_data);
+    try stream0.memcpyDtoH(f32, &h_result0, d0_data);
 
     std.debug.print("\n  GPU 0 data[0..5]: ", .{});
     for (h_result0[0..5]) |v| std.debug.print("{d:.0} ", .{v});

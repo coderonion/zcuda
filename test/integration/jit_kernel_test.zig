@@ -40,7 +40,7 @@ test "JIT Kernel: NVRTC compile → load module → launch → verify" {
 
     // Step 4: Prepare data
     const host_data = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
-    var d_data = try stream.cloneHtod(f32, &host_data);
+    var d_data = try stream.cloneHtoD(f32, &host_data);
     defer d_data.deinit();
 
     // Step 5: Launch kernel: data *= 3.0
@@ -55,7 +55,7 @@ test "JIT Kernel: NVRTC compile → load module → launch → verify" {
 
     // Step 6: Verify results
     var result: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_data);
+    try stream.memcpyDtoH(f32, &result, d_data);
     const expected = [_]f32{ 3.0, 6.0, 9.0, 12.0 };
     for (0..4) |i| {
         try std.testing.expectApproxEqAbs(expected[i], result[i], 1e-5);

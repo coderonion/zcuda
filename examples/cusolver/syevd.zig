@@ -33,7 +33,7 @@ pub fn main() !void {
     }
     std.debug.print("\n", .{});
 
-    var d_A = try stream.cloneHtod(f32, &A_data);
+    var d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
     var d_W = try stream.allocZeros(f32, allocator, @intCast(n));
     defer d_W.deinit();
@@ -42,17 +42,22 @@ pub fn main() !void {
     const d_ws = try stream.alloc(f32, allocator, @intCast(buf_size));
     defer d_ws.deinit();
 
-    var info: i32 = -1;
-    try ext.ssyevd(.vector, .lower, n, d_A, n, d_W, d_ws, buf_size, &info);
-    try ctx.synchronize();
+    // cuSOLVER requires devInfo to be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = 0;
 
-    if (info != 0) {
-        std.debug.print("Eigenvalue decomposition failed: info = {}\n", .{info});
+    try ext.ssyevd(.vector, .lower, n, d_A, n, d_W, d_ws, buf_size, d_info);
+    try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+
+    if (h_info != 0) {
+        std.debug.print("Eigenvalue decomposition failed: info = {}\n", .{h_info});
         return error.EigenFailed;
     }
 
     var h_W: [3]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_W, d_W);
+    try stream.memcpyDtoH(f32, &h_W, d_W);
 
     std.debug.print("Eigenvalues (ascending):\n", .{});
     for (0..3) |i| {
@@ -67,7 +72,7 @@ pub fn main() !void {
     }
 
     // Read eigenvectors (columns of A after decomposition)
-    try stream.memcpyDtoh(f32, &A_data, d_A);
+    try stream.memcpyDtoH(f32, &A_data, d_A);
     std.debug.print("Eigenvectors (columns):\n", .{});
     for (0..3) |c| {
         std.debug.print("  v[{}] = [{d:.4}, {d:.4}, {d:.4}]\n", .{

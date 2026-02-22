@@ -27,7 +27,7 @@ test "FFT roundtrip: R2C forward → C2R inverse → verify" {
     defer inv_plan.deinit();
 
     // Upload input
-    const d_input = try stream.cloneHtod(f32, &input_data);
+    const d_input = try stream.cloneHtoD(f32, &input_data);
     defer d_input.deinit();
 
     // Allocate complex buffer (10 floats for 5 complex numbers)
@@ -48,7 +48,7 @@ test "FFT roundtrip: R2C forward → C2R inverse → verify" {
 
     // Step 3: Verify roundtrip (result = input * N due to un-normalized inverse)
     var result: [8]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_output);
+    try stream.memcpyDtoH(f32, &result, d_output);
     for (0..8) |i| {
         const expected = input_data[i] * @as(f32, @floatFromInt(n));
         try std.testing.expectApproxEqAbs(expected, result[i], 1e-3);

@@ -27,7 +27,7 @@ pub fn main() !void {
     }
     std.debug.print(" ]\n\n", .{});
 
-    const d_x = try stream.cloneHtod(f32, &x_data);
+    const d_x = try stream.cloneHtoD(f32, &x_data);
     defer d_x.deinit();
 
     // ISAMAX: index of max |x|

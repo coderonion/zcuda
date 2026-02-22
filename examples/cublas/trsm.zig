@@ -47,16 +47,16 @@ pub fn main() !void {
     for (&B_data) |v| std.debug.print("{d:.0} ", .{v});
     std.debug.print("]\n\n", .{});
 
-    const d_A = try stream.cloneHtod(f32, &A_data);
+    const d_A = try stream.cloneHtoD(f32, &A_data);
     defer d_A.deinit();
-    const d_B = try stream.cloneHtod(f32, &B_data);
+    const d_B = try stream.cloneHtoD(f32, &B_data);
     defer d_B.deinit();
 
     // Solve: A * X = 1.0 * B  (result stored in B)
     try blas.strsm(.left, .lower, .no_transpose, .non_unit, m, n, 1.0, d_A, m, d_B, m);
 
     var X: [3]f32 = undefined;
-    try stream.memcpyDtoh(f32, &X, d_B);
+    try stream.memcpyDtoH(f32, &X, d_B);
 
     std.debug.print("X (solution of A·X = B):\n  [ ", .{});
     for (&X) |v| std.debug.print("{d:.4} ", .{v});

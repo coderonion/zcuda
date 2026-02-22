@@ -87,7 +87,7 @@ pub fn main() !void {
     printParticles(&particles);
 
     // Copy particles to device
-    const d_particles = try stream.cloneHtod(Particle, &particles);
+    const d_particles = try stream.cloneHtoD(Particle, &particles);
     defer d_particles.deinit();
 
     // Simulate 10 time steps
@@ -100,7 +100,7 @@ pub fn main() !void {
     try stream.synchronize();
 
     // Copy results back
-    try stream.memcpyDtoh(Particle, &particles, d_particles);
+    try stream.memcpyDtoH(Particle, &particles, d_particles);
 
     std.debug.print("\n─── After {} Steps (dt={d:.3}s, g={d:.2}) ───\n", .{ steps, dt, gravity });
     printParticles(&particles);

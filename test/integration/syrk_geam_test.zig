@@ -23,11 +23,11 @@ test "cuBLAS SYRK → GEAM: regularized Gram matrix" {
     // Identity (2x2)
     const eye_data = [_]f32{ 1, 0, 0, 1 };
 
-    const d_a = try stream.cloneHtod(f32, &a_data);
+    const d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
     var d_c = try stream.allocZeros(f32, allocator, 4);
     defer d_c.deinit();
-    const d_eye = try stream.cloneHtod(f32, &eye_data);
+    const d_eye = try stream.cloneHtoD(f32, &eye_data);
     defer d_eye.deinit();
     var d_result = try stream.allocZeros(f32, allocator, 4);
     defer d_result.deinit();
@@ -41,7 +41,7 @@ test "cuBLAS SYRK → GEAM: regularized Gram matrix" {
     try ctx.synchronize();
 
     var result: [4]f32 = undefined;
-    try stream.memcpyDtoh(f32, &result, d_result);
+    try stream.memcpyDtoH(f32, &result, d_result);
 
     // A*A^T = [[35, 44], [44, 56]]
     // + 0.1*I = [[35.1, 44], [44, 56.1]]

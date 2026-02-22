@@ -186,6 +186,18 @@ pub const CudaFunction = struct {
     pub fn getAttribute(self: Self, attrib: sys.CUfunction_attribute) DriverError!i32 {
         return try result.function.getAttribute(self.function, attrib);
     }
+
+    /// Suggest an optimal block size for maximum occupancy.
+    /// Returns .{ .block_size, .min_grid_size }.
+    pub fn optimalBlockSize(self: Self, opts: struct { shared_mem_bytes: usize = 0, block_size_limit: i32 = 0 }) DriverError!struct { block_size: i32, min_grid_size: i32 } {
+        const r = try result.occupancy.maxPotentialBlockSize(self.function, opts.shared_mem_bytes, opts.block_size_limit);
+        return .{ .block_size = r.block_size, .min_grid_size = r.min_grid_size };
+    }
+
+    /// Get the maximum number of active blocks per SM for a given block size.
+    pub fn maxActiveBlocksPerSM(self: Self, block_size: i32, dynamic_smem_size: usize) DriverError!i32 {
+        return try result.occupancy.maxActiveBlocksPerMultiprocessor(self.function, block_size, dynamic_smem_size);
+    }
 };
 
 // ============================================================================
@@ -291,7 +303,7 @@ pub const CudaStream = struct {
     // --- Host <-> Device Memory Transfer ---
 
     /// Clone host data to a new device allocation (synchronous).
-    pub fn cloneHtod(self: Self, comptime T: type, data: []const T) DriverError!CudaSlice(T) {
+    pub fn cloneHtoD(self: Self, comptime T: type, data: []const T) DriverError!CudaSlice(T) {
         try self.ctx.bindToThread();
         const ptr = try result.mem.alloc(data.len * @sizeOf(T));
         try result.mem.copyHtoD(ptr, @ptrCast(data.ptr), data.len * @sizeOf(T));
@@ -303,7 +315,7 @@ pub const CudaStream = struct {
     }
 
     /// Copy host data to an existing device allocation (synchronous).
-    pub fn memcpyHtod(self: Self, comptime T: type, dst: CudaSlice(T), src: []const T) DriverError!void {
+    pub fn memcpyHtoD(self: Self, comptime T: type, dst: CudaSlice(T), src: []const T) DriverError!void {
         try self.ctx.bindToThread();
         std.debug.assert(dst.len >= src.len);
         try result.mem.copyHtoD(dst.ptr, @ptrCast(src.ptr), src.len * @sizeOf(T));
@@ -311,14 +323,14 @@ pub const CudaStream = struct {
 
     /// Copy device data to host (synchronous).
     /// The caller must ensure `dst` has enough space.
-    pub fn memcpyDtoh(self: Self, comptime T: type, dst: []T, src: CudaSlice(T)) DriverError!void {
+    pub fn memcpyDtoH(self: Self, comptime T: type, dst: []T, src: CudaSlice(T)) DriverError!void {
         try self.ctx.bindToThread();
         std.debug.assert(dst.len >= src.len);
         try result.mem.copyDtoH(@ptrCast(dst.ptr), src.ptr, src.len * @sizeOf(T));
     }
 
     /// Clone device data to a newly allocated host buffer.
-    pub fn cloneDtoh(self: Self, comptime T: type, allocator: std.mem.Allocator, src: CudaSlice(T)) ![]T {
+    pub fn cloneDtoH(self: Self, comptime T: type, allocator: std.mem.Allocator, src: CudaSlice(T)) ![]T {
         try self.ctx.bindToThread();
         const host = try allocator.alloc(T, src.len);
         errdefer allocator.free(host);
@@ -422,21 +434,21 @@ pub const CudaStream = struct {
     // --- Async Memory Operations ---
 
     /// Asynchronous host-to-device memory copy.
-    pub fn memcpyHtodAsync(self: Self, comptime T: type, dst: CudaSlice(T), src: []const T) DriverError!void {
+    pub fn memcpyHtoDAsync(self: Self, comptime T: type, dst: CudaSlice(T), src: []const T) DriverError!void {
         try self.ctx.bindToThread();
         std.debug.assert(dst.len >= src.len);
         try result.mem.copyHtoDAsync(dst.ptr, @ptrCast(src.ptr), src.len * @sizeOf(T), self.stream);
     }
 
     /// Asynchronous device-to-host memory copy.
-    pub fn memcpyDtohAsync(self: Self, comptime T: type, dst: []T, src: CudaSlice(T)) DriverError!void {
+    pub fn memcpyDtoHAsync(self: Self, comptime T: type, dst: []T, src: CudaSlice(T)) DriverError!void {
         try self.ctx.bindToThread();
         std.debug.assert(dst.len >= src.len);
         try result.mem.copyDtoHAsync(@ptrCast(dst.ptr), src.ptr, src.len * @sizeOf(T), self.stream);
     }
 
     /// Asynchronous device-to-device memory copy.
-    pub fn memcpyDtodAsync(self: Self, comptime T: type, dst: CudaSlice(T), src: CudaSlice(T)) DriverError!void {
+    pub fn memcpyDtoDAsync(self: Self, comptime T: type, dst: CudaSlice(T), src: CudaSlice(T)) DriverError!void {
         try self.ctx.bindToThread();
         std.debug.assert(dst.len >= src.len);
         try result.mem.copyDtoDAsync(dst.ptr, src.ptr, src.len * @sizeOf(T), self.stream);
@@ -471,7 +483,8 @@ pub const CudaStream = struct {
         return CudaGraph{
             .cu_graph = g,
             .cu_graph_exec = exec,
-            .stream = &self,
+            .ctx = self.ctx,
+            .cu_stream = self.stream,
         };
     }
 
@@ -519,7 +532,7 @@ fn isDeviceSlicePtr(comptime T: type) bool {
 /// defer ctx.deinit();
 ///
 /// const stream = ctx.defaultStream();
-/// const data = try stream.cloneHtod(f32, &[_]f32{1.0, 2.0, 3.0});
+/// const data = try stream.cloneHtoD(f32, &[_]f32{1.0, 2.0, 3.0});
 /// defer data.deinit();
 /// ```
 pub const CudaContext = struct {
@@ -763,14 +776,15 @@ pub const CudaContext = struct {
 pub const CudaGraph = struct {
     cu_graph: sys.CUgraph,
     cu_graph_exec: sys.CUgraphExec,
-    stream: *const CudaStream,
+    ctx: *const CudaContext, // stable pointer (not a copy)
+    cu_stream: sys.CUstream, // raw handle (value, not pointer)
 
     const Self = @This();
 
     /// Launch (replay) this recorded graph.
     pub fn launch(self: Self) DriverError!void {
-        try self.stream.ctx.bindToThread();
-        try result.graph.launch(self.cu_graph_exec, self.stream.stream);
+        try self.ctx.bindToThread();
+        try result.graph.launch(self.cu_graph_exec, self.cu_stream);
     }
 
     /// Destroy the graph and its executable.

@@ -27,6 +27,7 @@ User code should exclusively use the **safe layer** (top-level module exports).
 - [cuSPARSE](#cusparse) — [full docs](cusparse/README.md)
 - [NVRTC](#nvrtc) — [full docs](nvrtc/README.md)
 - [NVTX](#nvtx) — [full docs](nvtx/README.md)
+- [Kernel DSL](#kernel-dsl) — [full docs](kernel/API.md)
 
 ---
 
@@ -66,14 +67,14 @@ GPU context management with automatic CUDA driver initialization.
 | ---------------------------------------- | ------------------------------ |
 | `alloc(T, alloc, n) !CudaSlice(T)`       | Allocate device memory         |
 | `allocZeros(T, alloc, n) !CudaSlice(T)`  | Alloc + zero-fill on device    |
-| `cloneHtod(T, host_slice) !CudaSlice(T)` | Host → Device copy             |
-| `memcpyHtod(T, dst, src) !void`          | Copy host → device             |
-| `memcpyDtoh(T, dst, src) !void`          | Copy device → host             |
-| `cloneDtoh(T, alloc, src) ![]T`          | Clone device → new host buffer |
+| `cloneHtoD(T, host_slice) !CudaSlice(T)` | Host → Device copy             |
+| `memcpyHtoD(T, dst, src) !void`          | Copy host → device             |
+| `memcpyDtoH(T, dst, src) !void`          | Copy device → host             |
+| `cloneDtoH(T, alloc, src) ![]T`          | Clone device → new host buffer |
 | `memcpyDtoD(T, dst, src) !void`          | Copy device → device           |
-| `memcpyHtodAsync(T, dst, src) !void`     | Async host → device            |
-| `memcpyDtohAsync(T, dst, src) !void`     | Async device → host            |
-| `memcpyDtodAsync(T, dst, src) !void`     | Async device → device          |
+| `memcpyHtoDAsync(T, dst, src) !void`     | Async host → device            |
+| `memcpyDtoHAsync(T, dst, src) !void`     | Async device → host            |
+| `memcpyDtoDAsync(T, dst, src) !void`     | Async device → device          |
 | `launch(kernel, config, args) !void`     | Launch kernel                  |
 | `synchronize(self) !void`                | Synchronize stream             |
 | `waitEvent(self, event) !void`           | Wait for event                 |
@@ -330,17 +331,31 @@ GPU context management with automatic CUDA driver initialization.
 **Enable:** `-Dcusolver=true`
 📖 [Full documentation](cusolver/README.md)
 
+> **`info` parameter:** All cuSOLVER functions take `info: driver.CudaSlice(i32)` — a
+> **device-side** pointer required by the cuSOLVER API. After calling `ctx.synchronize()`,
+> copy the value to host with `stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info)`.
+
+```zig
+var d_info = try stream.allocZeros(i32, allocator, 1);
+defer d_info.deinit();
+var h_info: i32 = 0;
+
+try sol.sgetrf(n, n, d_A, n, d_ws, d_ipiv, d_info); // device pointer
+try ctx.synchronize();
+try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info); // bring to host
+```
+
 ### CusolverDnContext
 
 | Method                                  | Description               |
 | --------------------------------------- | ------------------------- |
 | `init(ctx) !CusolverDnContext`          | Create handle             |
 | `deinit(self)`                          | Destroy handle            |
-| `sgetrf_bufferSize / dgetrf_bufferSize` | LU workspace              |
-| `sgetrf / dgetrf`                       | LU factorization: PA = LU |
-| `sgetrs / dgetrs`                       | LU solve: AX = B          |
-| `sgesvd_bufferSize / dgesvd_bufferSize` | SVD workspace             |
-| `sgesvd / dgesvd`                       | SVD: A = UΣVᵀ             |
+| `sgetrf_bufferSize / dgetrf_bufferSize` | LU workspace query        |
+| `sgetrf(m,n,A,lda,ws,ipiv,info) !void` | LU factorization: PA = LU |
+| `sgetrs(n,nrhs,A,lda,ipiv,B,ldb,info) !void` | LU solve: AX = B |
+| `sgesvd_bufferSize / dgesvd_bufferSize` | SVD workspace query       |
+| `sgesvd(jobu,jobvt,m,n,A,lda,S,U,ldu,VT,ldvt,ws,lwork,info) !void` | SVD: A = UΣVᵀ |
 
 ### CusolverDnExt
 
@@ -349,7 +364,7 @@ GPU context management with automatic CUDA driver initialization.
 | `init(base) CusolverDnExt`                | Wrap base context        |
 | `spotrf / dpotrf`                         | Cholesky: A = LLᵀ        |
 | `spotrs / dpotrs`                         | Cholesky solve           |
-| `dgeqrf`                                  | QR factorization         |
+| `sgeqrf / dgeqrf`                         | QR factorization         |
 | `sorgqr / dorgqr`                         | Extract Q matrix         |
 | `ssyevd / dsyevd`                         | Eigenvalue decomposition |
 | `sgesvdj / dgesvdj`                       | Jacobi SVD               |
@@ -450,3 +465,62 @@ GPU context management with automatic CUDA driver initialization.
 | --------------------- | ------------------- |
 | `create(name) Domain` | Create named domain |
 | `destroy(self) void`  | Destroy domain      |
+
+---
+
+## Kernel DSL
+
+> **This is a separate module** — `@import("zcuda_kernel")`, not `@import("zcuda")`.
+> Full reference: 📖 [docs/kernel/API.md](kernel/API.md)
+> Migration guide: 📖 [docs/kernel/MIGRATION.md](kernel/MIGRATION.md)
+
+The Kernel DSL lets you write CUDA GPU kernels in **pure Zig** — no CUDA C++, no `nvcc`.
+Zig compiles them directly to PTX at `zig build` time via the LLVM NVPTX backend.
+
+```zig
+// A pure-Zig GPU kernel
+export fn saxpy(n: u32, alpha: f32, x: [*]f32, y: [*]f32) callconv(.Kernel) void {
+    var iter = cuda.types.gridStrideLoop(n);
+    while (iter.next()) |i| {
+        y[i] = alpha * x[i] + y[i];
+    }
+}
+```
+
+### Sub-modules (`src/kernel/`)
+
+| File | Description |
+| ---- | ----------- |
+| `intrinsics.zig` | 98 inline fns: `threadIdx`, `blockIdx`, atomics (`atomicAdd`–`atomicDec`), warp shuffle/vote/match/reduce, fast math, bit ops, cache hints, type conversion, `__nanosleep`, `__byte_perm` |
+| `tensor_core.zig` | 56 inline fns: WMMA (sm_70+), MMA PTX (sm_80+), FP8 (sm_89+), wgmma/TMA/cluster (sm_90+), tcgen05 (sm_100+) |
+| `shared_mem.zig` | `SharedArray(T,N)` static SMEM (addrspace(3)), `dynamicShared(T)`, `dynamicSharedBytes()`, `clearShared`, `loadToShared`, `storeFromShared`, `reduceSum` |
+| `arch.zig` | `SmVersion` enum (sm_52–sm_100+), `requireSM` comptime guard, `atLeast`, `codename` |
+| `types.zig` | `DeviceSlice(T)` (get/set/len), `DevicePtr(T)` (load/store/atomicAdd), `GridStrideIterator`, `globalThreadIdx`, `gridStride` |
+| `debug.zig` | `assertf`, `assertInBounds`, `safeGet`, `ErrorFlag` (5 error codes), `setError`, `checkNaN`, `printf`, `CycleTimer`, `__trap`, `__brkpt` |
+| `device.zig` | Module root (re-exports all sub-modules as `cuda.*`) |
+| `shared_types.zig` | Host-device shared: `Vec2/3/4`, `Int2/3`, `Matrix3x3/4x4`, `LaunchConfig` (init1D/2D, forElementCount) |
+| `bridge_gen.zig` | `init(Config)` → comptime `Fn` enum, `load`, `loadFromPtx`, `getFunction`, `getFunctionByName` |
+
+### Key API Summary
+
+| Category | Examples |
+| -------- | -------- |
+| Thread indexing | `cuda.threadIdx()`, `cuda.blockIdx()`, `cuda.blockDim()`, `cuda.gridDim()`, `cuda.types.globalThreadIdx()` |
+| Synchronization | `cuda.__syncthreads()`, `cuda.__syncwarp(mask)`, `cuda.__threadfence()`, `cuda.__syncthreads_count/and/or` |
+| Atomics | `atomicAdd`, `atomicSub`, `atomicMin`, `atomicMax`, `atomicCAS`, `atomicExch`, `atomicAnd/Or/Xor`, `atomicInc/Dec`, `atomicAdd_f64` |
+| Warp shuffles | `__shfl_sync`, `__shfl_down_sync`, `__shfl_up_sync`, `__shfl_xor_sync` |
+| Warp vote/match | `__ballot_sync`, `__all_sync`, `__any_sync`, `__activemask`, `__match_any_sync`, `__match_all_sync` |
+| Warp reduce (sm_80+) | `__reduce_add_sync`, `__reduce_min/max/and/or/xor_sync` |
+| Fast math | `__sinf`, `__cosf`, `__tanf`, `rsqrtf`, `sqrtf`, `__expf`, `__logf`, `__fmaf_rn`, `__fdividef`, `__saturatef`, `__powf` |
+| Integer ops | `__clz`, `__clzll`, `__popc`, `__popcll`, `__brev`, `__brevll`, `__ffs`, `__byte_perm`, `__dp4a`, `__dp2a_lo/hi` |
+| Cache hints | `__ldg`, `__ldca`, `__ldcs`, `__ldcg`, `__stcg`, `__stcs`, `__stwb` |
+| Type conversion | `__float2int_rn/rz`, `__float_as_int`, `__int_as_float`, `__double2hiint`, `__hiloint2double` |
+| Shared memory | `SharedArray(T,N)`, `dynamicShared(T)`, `clearShared`, `loadToShared`, `reduceSum` |
+| Device types | `DeviceSlice(T).get/set/len`, `DevicePtr(T).atomicAdd`, `GridStrideIterator`, `gridStrideLoop(n)` |
+| Shared types | `Vec2/3/4`, `Int2/3`, `Matrix3x3/4x4`, `LaunchConfig.forElementCount` |
+| Debug | `assertf`, `ErrorFlag`, `printf`, `CycleTimer`, `__trap` |
+| Clock | `cuda.clock()`, `cuda.clock64()`, `cuda.globaltimer()`, `cuda.__nanosleep(ns)` |
+| WMMA | `wmma_load_a_f16`, `wmma_mma_f16_f32`, `wmma_store_d_f32`, `wmma_mma_s8_s32` |
+| MMA PTX | `mma_f16_f32`, `mma_bf16_f32`, `mma_tf32_f32`, `mma_f64_f64`, `mma_e4m3_f32` |
+| cp.async / wgmma / TMA | `memcpy_async`, `cp_async_wait_all`, `wgmma_f16_f32`, `tma_load`, `bulk_copy_g2s` |
+| Bridge | `init(Config)`, `load(ctx, allocator)`, `getFunction(mod, .funcName)` |

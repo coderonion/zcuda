@@ -2,7 +2,7 @@
 ///
 /// The "Hello World" of CUDA programming. Demonstrates:
 /// 1. NVRTC runtime compilation of CUDA C++ to PTX
-/// 2. Device memory allocation (alloc, allocZeros, cloneHtod)
+/// 2. Device memory allocation (alloc, allocZeros, cloneHtoD)
 /// 3. Kernel launch with grid/block configuration
 /// 4. Device-to-host data transfer and result verification
 ///
@@ -62,10 +62,10 @@ pub fn main() !void {
     std.debug.print("\n\n", .{});
 
     // --- Allocate device memory and copy data ---
-    const d_A = try stream.cloneHtod(f32, &h_A);
+    const d_A = try stream.cloneHtoD(f32, &h_A);
     defer d_A.deinit();
 
-    const d_B = try stream.cloneHtod(f32, &h_B);
+    const d_B = try stream.cloneHtoD(f32, &h_B);
     defer d_B.deinit();
 
     const d_C = try stream.allocZeros(f32, allocator, n);
@@ -86,7 +86,7 @@ pub fn main() !void {
 
     // --- Copy results back and verify ---
     var h_C: [50000]f32 = undefined;
-    try stream.memcpyDtoh(f32, &h_C, d_C);
+    try stream.memcpyDtoH(f32, &h_C, d_C);
 
     std.debug.print("Verifying results...\n", .{});
     var max_error: f32 = 0.0;

@@ -44,9 +44,9 @@ pub fn main() !void {
     @memset(&C, 0.0);
 
     // Copy to device
-    const d_A = try stream.cloneHtod(f32, &A);
+    const d_A = try stream.cloneHtoD(f32, &A);
     defer d_A.deinit();
-    const d_B = try stream.cloneHtod(f32, &B);
+    const d_B = try stream.cloneHtoD(f32, &B);
     defer d_B.deinit();
     const d_C = try stream.allocZeros(f32, allocator, @intCast(m * n * batch));
     defer d_C.deinit();
@@ -72,7 +72,7 @@ pub fn main() !void {
         batch,
     );
 
-    try stream.memcpyDtoh(f32, &C, d_C);
+    try stream.memcpyDtoH(f32, &C, d_C);
 
     // Print and verify results
     for (0..@intCast(batch)) |b| {

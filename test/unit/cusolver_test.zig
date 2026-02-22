@@ -26,7 +26,7 @@ test "cuSOLVER sgetrf buffer size query" {
     // Need a dummy device allocation for buffer size query
     const n: i32 = 4;
     const a_data = [_]f32{0} ** 16;
-    const d_a = try stream.cloneHtod(f32, &a_data);
+    const d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
 
     const buf_size = try sol.sgetrf_bufferSize(n, n, d_a, n);
@@ -46,7 +46,7 @@ test "cuSOLVER sgetrf — LU factorization" {
     const n: i32 = 2;
     const a_data = [_]f32{ 4, 1, 2, 3 };
 
-    var d_a = try stream.cloneHtod(f32, &a_data);
+    var d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
 
     const buf_size = try sol.sgetrf_bufferSize(n, n, d_a, n);
@@ -56,11 +56,16 @@ test "cuSOLVER sgetrf — LU factorization" {
     var d_ipiv = try stream.allocZeros(i32, allocator, @intCast(n));
     defer d_ipiv.deinit();
 
-    var info: i32 = -1;
-    try sol.sgetrf(n, n, d_a, n, d_workspace, d_ipiv, &info);
-    try ctx.synchronize();
+    // cuSOLVER devInfo must be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = -1;
 
-    try std.testing.expectEqual(@as(i32, 0), info);
+    try sol.sgetrf(n, n, d_a, n, d_workspace, d_ipiv, d_info);
+    try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+
+    try std.testing.expectEqual(@as(i32, 0), h_info);
 }
 
 test "cuSOLVER gesvdj — Jacobi SVD" {
@@ -83,7 +88,7 @@ test "cuSOLVER gesvdj — Jacobi SVD" {
     const n: i32 = 2;
     const a_data = [_]f32{ 3, 1, 1, 3 };
 
-    var d_a = try stream.cloneHtod(f32, &a_data);
+    var d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
 
     var d_s = try stream.allocZeros(f32, allocator, 2);
@@ -99,14 +104,19 @@ test "cuSOLVER gesvdj — Jacobi SVD" {
     const d_work = try stream.alloc(f32, allocator, @intCast(buf_size));
     defer d_work.deinit();
 
-    var dev_info: i32 = -1;
-    try ext.sgesvdj(.vector, econ, n, n, d_a, n, d_s, d_u, n, d_v, n, d_work, buf_size, &dev_info, params);
-    try ctx.synchronize();
+    // cuSOLVER devInfo must be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = -1;
 
-    try std.testing.expectEqual(@as(i32, 0), dev_info);
+    try ext.sgesvdj(.vector, econ, n, n, d_a, n, d_s, d_u, n, d_v, n, d_work, buf_size, d_info, params);
+    try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+
+    try std.testing.expectEqual(@as(i32, 0), h_info);
 
     var s_result: [2]f32 = undefined;
-    try stream.memcpyDtoh(f32, &s_result, d_s);
+    try stream.memcpyDtoH(f32, &s_result, d_s);
     // Singular values of [[3,1],[1,3]] are 4 and 2
     try std.testing.expectApproxEqAbs(@as(f32, 4.0), s_result[0], 0.05);
     try std.testing.expectApproxEqAbs(@as(f32, 2.0), s_result[1], 0.05);
@@ -126,9 +136,9 @@ test "cuSOLVER sgetrf + sgetrs: LU solve pipeline" {
     var a_data = [_]f32{ 4, 1, 1, 3 }; // col-major
     var b_data = [_]f32{ 5, 4 };
 
-    var d_a = try stream.cloneHtod(f32, &a_data);
+    var d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
-    var d_b = try stream.cloneHtod(f32, &b_data);
+    var d_b = try stream.cloneHtoD(f32, &b_data);
     defer d_b.deinit();
 
     const buf_size = try sol.sgetrf_bufferSize(n, n, d_a, n);
@@ -138,16 +148,21 @@ test "cuSOLVER sgetrf + sgetrs: LU solve pipeline" {
     var d_ipiv = try stream.allocZeros(i32, allocator, @intCast(n));
     defer d_ipiv.deinit();
 
-    var info: i32 = -1;
-    try sol.sgetrf(n, n, d_a, n, d_ws, d_ipiv, &info);
+    // cuSOLVER devInfo must be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = -1;
+
+    try sol.sgetrf(n, n, d_a, n, d_ws, d_ipiv, d_info);
     try ctx.synchronize();
-    try std.testing.expectEqual(@as(i32, 0), info);
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
+    try std.testing.expectEqual(@as(i32, 0), h_info);
 
     // Solve: getrs(A_factored, ipiv, b) using safe layer
-    try sol.sgetrs(n, 1, d_a, n, d_ipiv, d_b, n, &info);
+    try sol.sgetrs(n, 1, d_a, n, d_ipiv, d_b, n, d_info);
     try ctx.synchronize();
 
-    try stream.memcpyDtoh(f32, &b_data, d_b);
+    try stream.memcpyDtoH(f32, &b_data, d_b);
     try std.testing.expectApproxEqAbs(@as(f32, 1.0), b_data[0], 0.01);
     try std.testing.expectApproxEqAbs(@as(f32, 1.0), b_data[1], 0.01);
 }
@@ -165,20 +180,25 @@ test "cuSOLVER Cholesky: spotrf factorization" {
     const n: i32 = 2;
     var a_data = [_]f32{ 4, 2, 2, 5 };
 
-    var d_a = try stream.cloneHtod(f32, &a_data);
+    var d_a = try stream.cloneHtoD(f32, &a_data);
     defer d_a.deinit();
 
     const buf_size = try ext.spotrf_bufferSize(.lower, n, d_a, n);
     const d_ws = try stream.alloc(f32, allocator, @intCast(buf_size));
     defer d_ws.deinit();
 
-    var info: i32 = -1;
-    try ext.spotrf(.lower, n, d_a, n, d_ws, buf_size, &info);
+    // cuSOLVER devInfo must be a GPU-side pointer
+    var d_info = try stream.allocZeros(i32, allocator, 1);
+    defer d_info.deinit();
+    var h_info: i32 = -1;
+
+    try ext.spotrf(.lower, n, d_a, n, d_ws, buf_size, d_info);
     try ctx.synchronize();
+    try stream.memcpyDtoH(i32, @as(*[1]i32, &h_info), d_info);
 
-    try std.testing.expectEqual(@as(i32, 0), info);
+    try std.testing.expectEqual(@as(i32, 0), h_info);
 
-    try stream.memcpyDtoh(f32, &a_data, d_a);
+    try stream.memcpyDtoH(f32, &a_data, d_a);
     // L[0,0] = sqrt(4) = 2
     try std.testing.expectApproxEqAbs(@as(f32, 2.0), a_data[0], 0.01);
 }
